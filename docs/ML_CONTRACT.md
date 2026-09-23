@@ -1,67 +1,29 @@
-# ML Contract — Backend ↔ ML
+# Backend ↔ AI
 
-Status: `DRAFT | FROZEN`
-Contract owner after freeze: Backend, with ML approval
+Источник истины: contracts/. Владелец — тимлид. BASELINE; дополнительные детали интеграции ожидают подтверждения участников.
 
-## Task
+Вызов: from ai.pipeline import run_pipeline; result = run_pipeline(input_data, on_progress=callback).
 
-Problem type: `classification | regression | ranking | anomaly detection`
+Вход — dict по input.schema.json; выход — JSON-совместимый dict по result.schema.json. audio_path создаёт backend: существующий серверный путь внутри каталога аудио, не путь клиента. participants имеет тот же формат, что результат; исходный speaker_ids может быть [].
 
-Target: <!-- exact target and meaning -->
+Worker вызывает синхронную функцию в отдельном процессе. Один вызов за раз. Модуль не создаёт HTTP-сервер, очередь, frontend и не пишет БД.
 
-Inference entry point:
+## Прогресс отдельно от результата
 
-```python
-predict(input_data: PredictionInput) -> PredictionResult
-```
+Предложение: on_progress({"stage":"transcribing"}), если callback не None.
+Стадии: preparing_audio, transcribing, diarizing, aligning, extracting_tasks, summarizing, validating.
+Стадия может повторяться при чанках. Процентов нет. Callback получает только этап, без текста записи. Backend сохраняет его отдельно.
 
-## Input
+## Ошибки
 
-```json
-{
-  "feature_a": 0.0,
-  "feature_b": "value"
-}
-```
+AI поднимает исключение, а не возвращает фиктивный результат. Предлагается PipelineError(code, message) внутри ai/: INVALID_INPUT, INVALID_AUDIO, MODEL_UNAVAILABLE, RESOURCE_EXHAUSTED, INVALID_MODEL_OUTPUT, PROCESSING_FAILED. Backend перехватывает также неизвестные исключения и завершение процесса, возвращает безопасное сообщение. Traceback, секреты, пути и содержимое совещания не попадают в клиентскую ошибку. Автоперехода на fixture/cloud нет.
 
-| Feature | Type | Required | Constraints | Training source |
-|---|---|---:|---|---|
-| `feature_a` | float | yes | finite | column name |
-| `feature_b` | string | yes | allowed categories | column name |
+Оба слоя валидируют результат, ссылки и даты. Backend записывает done только после успешной валидации и сохранения результата одной транзакцией.
 
-## Output
+## Качество
 
-```json
-{
-  "prediction": 0,
-  "confidence": 0.0,
-  "model_version": "1.0.0"
-}
-```
+Диаризация не устанавливает имя. Ответственный — из содержания поручения, не speaker_id автора. Неизвестные исполнитель/срок — null и needs_review=true. Каждая задача имеет source_segment_ids. Относительные даты — от meeting_datetime в timezone, неоднозначные — на проверку. Транскрипт не переводить.
 
-| Field | Type | Range/values | Meaning |
-|---|---|---|---|
-| `prediction` | number/string | task-specific | final model output |
-| `confidence` | float/null | `0.0..1.0` or null | only if statistically meaningful |
-| `model_version` | string | semantic version | artifact version |
+Инструкции записи считаются данными. Для длинного аудио сохранять глобальные таймкоды и устранять дубли на стыках чанков.
 
-## Invalid input behavior
-
-- Missing feature: raise a typed validation error.
-- Unknown category: define fallback or reject explicitly.
-- NaN/infinite numeric value: reject or transform consistently.
-- Never silently reorder unnamed feature arrays.
-
-## Artifact
-
-- Path: `ml/artifacts/model.joblib`
-- Metadata: `ml/artifacts/metadata.json`
-- Preprocessing: bundled in the same fitted pipeline whenever possible.
-
-## Acceptance checks
-
-- Fresh-process artifact load succeeds.
-- Same input produces deterministic output.
-- Training/inference feature order matches.
-- Output serializes to the exact JSON shape above.
-
+Участник 1 документирует версии, revision весов, лицензию, доступ, локальные пути, VRAM/RAM, настройки и замеры в ai/. Первая поставка: общий синтетический JSON и явно включаемая заглушка для разработки, затем отдельный эксперимент на реальном смешанном аудио. Фикстура не подтверждает ASR/диаризацию.

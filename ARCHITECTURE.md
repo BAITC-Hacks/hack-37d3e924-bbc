@@ -1,59 +1,39 @@
-# Architecture
+# Автопротоколирование совещаний
 
-Status: `DRAFT | FROZEN`
+Статус: BASELINE по требованиям тимлида, 23.09.2026. DOCX недоступен. Репозиторий при осмотре — шаблоны без реализации; готового стека для переиспользования нет.
 
-## Problem
+## P0 и владельцы
 
-<!-- One paragraph: what user problem are we solving? -->
+Загрузка → очередь → локальные ASR + диаризация → поручения и саммари → просмотр источников → исправление и сохранение → DOCX.
 
-## Primary user
-
-<!-- Who uses the product? -->
-
-## P0 vertical slice
-
-```text
-USER
-  -> FRONTEND ACTION
-  -> API ENDPOINT
-  -> BUSINESS LOGIC
-  -> DATABASE / ML
-  -> API RESULT
-  -> FRONTEND DISPLAY
-```
-
-## Components
-
-| Component | Technology | Responsibility | Owner |
-|---|---|---|---|
-| Frontend | React + TypeScript + Vite | UI, forms, API client, result display | Frontend |
-| Backend | FastAPI + Pydantic + SQLAlchemy | API, validation, business logic, persistence | Backend |
-| Database | PostgreSQL | Persistent application data | Backend |
-| ML | pandas + scikit-learn + joblib | Training, artifact, deterministic inference | ML |
-
-## Decisions
-
-| Decision | Choice | Reason |
+| Область | Владелец | Решение |
 |---|---|---|
-| Deployment | Docker Compose | One-command reproducibility |
-| API | REST/JSON | Fast and transparent integration |
-| ML integration | In-process adapter by default | Avoid an unnecessary service boundary |
+| ai/ | Участник 1 | Python, run_pipeline; модели после эксперимента |
+| backend/, frontend/ | Участник 2 | FastAPI, React/TypeScript, SQLite, python-docx |
+| contracts/, общий запуск, README, приёмка, интеграция | Тимлид | Контракт и проверенные инструкции; без основной разработки двух частей |
 
-## Non-goals
+Кандидаты, не подтверждённая конфигурация: faster-whisper/Whisper large-v3, pyannote Community-1, Qwen3-14B. Официальные инструкции, лицензии, доступ к весам и совместимые версии проверяет участник 1 до установки. Число GPU и карта не выбраны.
 
-- No microservices unless the case explicitly requires them.
-- No Kafka, Kubernetes, Celery, or speculative infrastructure.
-- No optional feature before the P0 flow works end to end.
+## Развёртывание
 
-## Environment
+Базово API, отдельный worker, SQLite и аудио находятся на одном GPU-сервере. Worker импортирует ai.pipeline.run_pipeline и обрабатывает одну запись за раз. HTTP-процесс модели не загружает. При контейнерах API и worker используют одинаковый общий путь /data. Путь ноутбука не передаётся удалённому worker.
 
-<!-- List required environment variables without values. -->
+SQLite хранит совещания, очередь, этап и версии результата. Аудио — на диске. Задание захватывается короткой транзакцией; тяжёлая обработка вне транзакции. Для старта Redis/Celery не нужны. После аварии worker зависшее processing переводится в failed, затем явный retry. Защиту от второго worker и восстановление реализует участник 2.
 
-## Risks
+Исходный машинный результат неизменяемый; правки хранятся отдельно. Экспорт использует последнюю сохранённую исправленную версию либо original. UI предупреждает о несохранённых правках.
 
-| Risk | Mitigation | Owner |
-|---|---|---|
-| Contract drift | Freeze two contracts before coding | All |
-| Model artifact mismatch | Smoke-test load + inference | ML |
-| Clean-start failure | Rebuild Compose before freeze | Backend |
+## Закрытый контур
 
+Аудио, транскрипт, поручения и саммари не отправляются внешним API. Зависимости и веса готовятся заранее, затем сценарий проверяется с отключённым внешним доступом. Нет облачного fallback, CDN и телеметрии с содержимым. OpenAI — только разработка без данных совещаний.
+
+Демо — синтетические или обезличенные записи. Базовый доступ к приложению через закрытую сеть/туннель. Публичное размещение без аутентификации не предусмотрено; необходимость публичного доступа согласовать отдельно.
+
+## Допущения и риски
+
+- Дедлайн 23.09.2026 18:00 GMT+5. Навыки, прогресс участников и доступ к GPU неизвестны.
+- Точность, скорость, VRAM и вместимость моделей не измерены.
+- Длинные записи: разбиение с глобальными таймкодами, объединение и устранение дублей; предел длительности после замеров.
+- Стартовое предложение загрузки: WAV/MP3/M4A/FLAC, 100 MiB; фактическое декодирование проверяет участник 2, предел согласует с участником 1.
+- Отсутствие весов не маскируется фикстурой. Тестовый режим явный; финальная приёмка требует реальной обработки.
+
+План: START_HERE.md и backlog/. Приёмка: docs/ACCEPTANCE.md. Источник схем: contracts/.

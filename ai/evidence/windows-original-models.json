@@ -1,0 +1,113 @@
+{
+  "date": "2026-09-23",
+  "execution": "real local models; not fixture",
+  "input": {
+    "kind": "synthetic Russian speech",
+    "voices": [
+      "Microsoft Irina Desktop",
+      "Microsoft Pavel"
+    ],
+    "duration_seconds": 20.7949375,
+    "privacy": "No user meeting recording or text used"
+  },
+  "hardware": {
+    "os": "Windows",
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "vram_gib": 4,
+    "ram_gib": 16,
+    "python": "3.14.6",
+    "torch": "2.14.0+cu130",
+    "transformers": "5.17.0"
+  },
+  "weights": {
+    "manifest": "ai/mac-models.lock.json",
+    "files_sha256_verified": 16,
+    "total_bytes": 3080564808,
+    "llm_revision": "50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b",
+    "replacement": false
+  },
+  "result": {
+    "schema_valid": true,
+    "segments": 6,
+    "speakers": 2,
+    "tasks": 2,
+    "known_assignees_correct": true
+  },
+  "limitations": [
+    "Relative deadline was omitted despite explicit source phrase.",
+    "Summary incorrectly attached an unspecified deadline to the report.",
+    "Kazakh, mixed speech, full-weight CPU runtime and long recordings not evaluated by this run.",
+    "No OS network-isolation test; local loading and Python socket guard enabled."
+  ],
+  "metrics": {
+    "duration_seconds": 20.7949375,
+    "wall_seconds": 196.97,
+    "stages": [
+      {
+        "stage": "preparing_audio",
+        "wall_seconds": 0.391,
+        "peak_rss_bytes": 42274816,
+        "torch_peak_cuda_allocated_bytes": null,
+        "mlx_peak_allocated_bytes": null,
+        "sampled_process_gpu_peak_mib": null,
+        "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+      },
+      {
+        "stage": "transcribing",
+        "wall_seconds": 4.509,
+        "peak_rss_bytes": 1103392768,
+        "torch_peak_cuda_allocated_bytes": 935260672,
+        "mlx_peak_allocated_bytes": null,
+        "sampled_process_gpu_peak_mib": null,
+        "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+      },
+      {
+        "stage": "diarizing",
+        "wall_seconds": 3.027,
+        "peak_rss_bytes": 204800000,
+        "torch_peak_cuda_allocated_bytes": null,
+        "mlx_peak_allocated_bytes": null,
+        "sampled_process_gpu_peak_mib": null,
+        "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+      },
+      {
+        "stage": "extracting_tasks",
+        "wall_seconds": 185.65,
+        "peak_rss_bytes": 3059486720,
+        "torch_peak_cuda_allocated_bytes": 2622932480,
+        "mlx_peak_allocated_bytes": null,
+        "sampled_process_gpu_peak_mib": null,
+        "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+      }
+    ],
+    "profile": {
+      "asr": "mixed_ctc",
+      "diarizer": "sherpa",
+      "llm": "mlx_torch",
+      "device": "cuda",
+      "quantization": "checkpoint",
+      "compute_type": "checkpoint"
+    }
+  },
+  "automated_checks": {
+    "backend": 18,
+    "ai": 108,
+    "prototype": 93,
+    "scripts": 13,
+    "frontend": 8,
+    "total": 240,
+    "typescript_vite_build": "passed"
+  },
+  "application_acceptance": {
+    "upload_via_http": "passed",
+    "separate_real_worker": "passed",
+    "browser_edit_and_save": "passed",
+    "original_immutable": "passed",
+    "manual_date_and_speaker_mapping_persisted": "passed",
+    "unknown_date_stays_null": "passed",
+    "docx_saved_review_and_kazakh_unicode": "passed",
+    "docx_visual_layout": "not rendered in this run",
+    "server_restart_preserves_review": "passed",
+    "launcher": "start-windows.cmd auto-selected CUDA"
+  }
+}

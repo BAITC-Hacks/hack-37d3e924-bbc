@@ -89,7 +89,8 @@ def environment(args):
     env.update(PIPELINE_MODE='fixture' if args.profile == 'fixture' else 'real',
                AI_MODE='fixture' if args.profile == 'fixture' else 'real',
                HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
-               HF_HUB_DISABLE_TELEMETRY='1', DO_NOT_TRACK='1')
+               HF_HUB_DISABLE_TELEMETRY='1', DO_NOT_TRACK='1',
+               PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
     env.setdefault('DATA_DIR', str(ROOT / '.local/app'))
     env.setdefault('AI_STATE_DIR', str(Path(env['DATA_DIR']).resolve() / 'ai-private'))
     if args.profile == 'mac':
@@ -102,7 +103,24 @@ def environment(args):
         env.update(AI_ASR='mixed_ctc', AI_ASR_PATH=str(folder / 'asr'),
                    AI_DIARIZER='sherpa', AI_DIARIZATION_PATH=str(folder / 'diarization'),
                    AI_LLM='mlx', AI_LLM_PATH=str(folder / 'llm'), AI_DEVICE='cpu')
+    elif args.profile == 'windows':
+        folder = Path(args.models or env.get('MEETING_MODEL_DIR') or ROOT / '.local/models').expanduser().resolve()
+        env.update(MEETING_MODEL_DIR=str(folder), AI_ASR='mixed_ctc',
+                   AI_ASR_PATH=str(folder / 'asr'), AI_DIARIZER='sherpa',
+                   AI_DIARIZATION_PATH=str(folder / 'diarization'),
+                   AI_LLM='mlx_torch', AI_LLM_PATH=str(folder / 'llm'),
+                   AI_DEVICE=args.device, AI_QUANTIZATION='none')
+        env.setdefault('AI_CONTEXT_TOKENS', '2048')
+        env.setdefault('AI_MAX_NEW_TOKENS', '512')
     return env
+
+
+def check_windows(args, env, verify_hashes=False):
+    command = [args.worker_python or args.python, '-m', 'ai.windows_check',
+               '--models', env['MEETING_MODEL_DIR'], '--device', env['AI_DEVICE']]
+    if verify_hashes:
+        command.append('--verify-hashes')
+    call(command, env)
 
 
 def run(args):
@@ -110,6 +128,8 @@ def run(args):
     if not (ROOT / 'frontend/dist/index.html').exists():
         raise SystemExit('Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend.')
     if args.profile != 'fixture':
+        if args.profile == 'windows':
+            check_windows(args, env)
         call([args.worker_python or args.python, '-c', 'from ai.settings import Settings; Settings.from_env()'], env)
     children = []
     def stop(signum=None, frame=None):
@@ -135,9 +155,12 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['setup', 'run', 'verify'])
-    parser.add_argument('--profile', choices=['mac', 'cuda', 'fixture'], default='mac' if sys.platform=='darwin' else 'cuda')
+    parser.add_argument('action', choices=['setup', 'run', 'verify', 'doctor'])
+    parser.add_argument('--profile', choices=['mac', 'cuda', 'windows', 'fixture'],
+                        default='windows' if IS_WINDOWS else 'mac' if sys.platform=='darwin' else 'cuda')
     parser.add_argument('--models')
+    parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu',
+                        help='Device for the Windows same-weight runtime; no automatic fallback')
     parser.add_argument('--worker-python', help='Optional separate preinstalled AI environment')
     parser.add_argument('--python', default=default_python())
     args = parser.parse_args()
@@ -162,6 +185,10 @@ def main():
         call([executable('npm'), 'test', '--prefix', 'frontend'])
         call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
         call([args.python, '-m', 'compileall', '-q', 'backend', 'ai', 'scripts'])
+    elif args.action == 'doctor':
+        if args.profile != 'windows':
+            parser.error('doctor currently checks the Windows model profile; use --profile windows')
+        check_windows(args, environment(args), verify_hashes=True)
     else:
         run(args)
 

@@ -1,5 +1,6 @@
 """Local decoding and bounded ASR windows; timestamps always use source seconds."""
 import math
+import os
 import subprocess
 from pathlib import Path
 from .errors import PipelineError
@@ -15,7 +16,8 @@ def prepare_audio(source, destination, max_seconds=3600, allowed_formats=None):
         '-protocol_whitelist', 'file,pipe',
         *(['-format_whitelist', ','.join(allowed_formats)] if allowed_formats else []),
         '-i', str(path.resolve()), '-vn', '-t', str(max_seconds+1),
-        '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', str(destination)], capture_output=True, timeout=180)
+        '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', str(destination)], capture_output=True, timeout=180,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     if proc.returncode:
         raise PipelineError('INVALID_AUDIO', 'Не удалось декодировать аудио.')
     duration = sf.info(str(destination)).duration

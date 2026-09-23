@@ -26,16 +26,19 @@ class Settings:
     @classmethod
     def from_env(cls):
         try:
+            llm = os.getenv('AI_LLM', 'transformers')
             s = cls(asr=os.getenv('AI_ASR', 'whisper'), diarizer=os.getenv('AI_DIARIZER', 'community1'),
-                llm=os.getenv('AI_LLM', 'transformers'), asr_path=os.getenv('AI_ASR_PATH', ''),
+                llm=llm, asr_path=os.getenv('AI_ASR_PATH', ''),
                 diarization_path=os.getenv('AI_DIARIZATION_PATH', ''), llm_path=os.getenv('AI_LLM_PATH', ''),
                 device=os.getenv('AI_DEVICE', 'cuda'), compute_type=os.getenv('AI_COMPUTE_TYPE', 'float16'),
                 language=os.getenv('AI_LANGUAGE') or None, quantization=os.getenv('AI_QUANTIZATION', 'none'),
                 num_speakers=int(os.getenv('AI_NUM_SPEAKERS', '0')), max_seconds=int(os.getenv('AI_MAX_SECONDS', '3600')),
-                context_tokens=int(os.getenv('AI_CONTEXT_TOKENS', '8192')), max_new_tokens=int(os.getenv('AI_MAX_NEW_TOKENS', '2048')))
+                context_tokens=int(os.getenv('AI_CONTEXT_TOKENS', '2048' if llm == 'mlx_torch' else '8192')),
+                max_new_tokens=int(os.getenv('AI_MAX_NEW_TOKENS', '512' if llm == 'mlx_torch' else '2048')))
             require(s.asr in ('whisper', 'mixed_ctc') and s.diarizer in ('community1', 'sherpa'))
-            require(s.llm in ('transformers', 'mlx') and s.device in ('cpu', 'cuda'))
+            require(s.llm in ('transformers', 'mlx', 'mlx_torch') and s.device in ('cpu', 'cuda'))
             require(s.quantization in ('none', 'nf4') and s.language in (None, 'ru', 'kk'))
+            require(s.llm != 'mlx_torch' or s.quantization == 'none')
             require(0 <= s.num_speakers <= 32 and 1 <= s.max_seconds <= 7200)
             require(2048 <= s.context_tokens <= 16384 and 256 <= s.max_new_tokens <= s.context_tokens // 2)
             for p in (s.asr_path, s.diarization_path, s.llm_path):

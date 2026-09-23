@@ -3,12 +3,14 @@ import argparse
 import os
 import platform
 import signal
+import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+IS_WINDOWS = os.name == 'nt'
 
 
 def load_env():
@@ -16,7 +18,7 @@ def load_env():
     path = ROOT / '.env'
     if not path.exists():
         return
-    for raw in path.read_text().splitlines():
+    for raw in path.read_text(encoding='utf-8').splitlines():
         line = raw.strip()
         if not line or line.startswith('#'):
             continue
@@ -24,6 +26,58 @@ def load_env():
         if not sep or not key.replace('_', '').isalnum():
             raise SystemExit('Некорректная строка в .env')
         os.environ.setdefault(key, value.strip().strip('"').strip("'"))
+
+
+def default_python():
+    if IS_WINDOWS:
+        candidates = [ROOT / '.venv/Scripts/python.exe',
+                      ROOT / 'prototypes/meeting-mvp/.venv/Scripts/python.exe']
+    else:
+        candidates = [ROOT / '.venv/bin/python']
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(candidates[0])
+
+
+def executable(name):
+    if IS_WINDOWS and name == 'npm':
+        resolved = shutil.which('npm.cmd') or shutil.which('npm')
+        return resolved or 'npm.cmd'
+    return name
+
+
+def worker_popen_kwargs():
+    if IS_WINDOWS:
+        return {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
+    return {'start_new_session': True}
+
+
+def stop_process_tree(child, timeout=10):
+    if child.poll() is not None:
+        return
+    if IS_WINDOWS:
+        subprocess.run(['taskkill', '/PID', str(child.pid), '/T'],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+    else:
+        try:
+            os.killpg(child.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            return
+    try:
+        child.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        if IS_WINDOWS:
+            subprocess.run(['taskkill', '/PID', str(child.pid), '/T', '/F'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+        else:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        child.wait()
 
 
 def call(args, env=None):
@@ -60,17 +114,14 @@ def run(args):
     children = []
     def stop(signum=None, frame=None):
         for child in children:
-            try:
-                os.killpg(child.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
+            stop_process_tree(child)
     def interrupted(signum, frame):
         raise KeyboardInterrupt
     signal.signal(signal.SIGTERM, interrupted)
     try:
         for cmd in ([args.worker_python or args.python, '-m', 'backend.worker'],
                     [args.python, '-m', 'uvicorn', 'backend.app:app', '--host', '127.0.0.1', '--port', env.get('BACKEND_PORT', '8000')]):
-            children.append(subprocess.Popen(cmd, cwd=ROOT, env=env, start_new_session=True))
+            children.append(subprocess.Popen(cmd, cwd=ROOT, env=env, **worker_popen_kwargs()))
         print('Приложение: http://127.0.0.1:'+env.get('BACKEND_PORT','8000'), flush=True)
         print('Режим: '+('ТЕСТОВАЯ ФИКСТУРА — модели не запускаются' if args.profile=='fixture' else 'локальные модели'), flush=True)
         while all(child.poll() is None for child in children):
@@ -80,16 +131,6 @@ def run(args):
         pass
     finally:
         stop()
-        deadline = time.monotonic() + 10
-        for child in children:
-            try:
-                child.wait(timeout=max(.1, deadline - time.monotonic()))
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                child.wait()
 
 
 def main():
@@ -98,28 +139,28 @@ def main():
     parser.add_argument('--profile', choices=['mac', 'cuda', 'fixture'], default='mac' if sys.platform=='darwin' else 'cuda')
     parser.add_argument('--models')
     parser.add_argument('--worker-python', help='Optional separate preinstalled AI environment')
-    parser.add_argument('--python', default=str(ROOT / '.venv/bin/python'))
+    parser.add_argument('--python', default=default_python())
     args = parser.parse_args()
     load_env()
     if args.action == 'setup':
-        if sys.version_info[:2] != (3, 12):
-            raise SystemExit('Для установки используйте Python 3.12.')
+        if sys.version_info < (3, 12):
+            raise SystemExit('Для установки используйте Python 3.12 или новее.')
         if args.profile=='mac' and (platform.system()!='Darwin' or platform.machine()!='arm64'):
             raise SystemExit('Профиль mac требует Apple Silicon.')
         if not Path(args.python).exists():
             call([sys.executable, '-m', 'venv', str(Path(args.python).parent.parent)])
-        command = [args.python, '-m', 'pip', 'install', '-r', 'backend/requirements.txt', '-r', 'requirements-test.txt']
+        pip_command = [args.python, '-m', 'pip', 'install', '-r', 'requirements-test.txt']
         if args.profile != 'fixture':
-            command += ['-r', 'ai/requirements-'+args.profile+'.lock.txt']
-        call(command)
+            pip_command += ['-r', 'ai/requirements-'+args.profile+'.lock.txt']
+        call(pip_command)
         call([args.python, '-m', 'pip', 'check'])
-        call(['npm', 'ci', '--prefix', 'frontend'])
-        call(['npm', 'run', 'build', '--prefix', 'frontend'])
+        call([executable('npm'), 'ci', '--prefix', 'frontend'])
+        call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
     elif args.action == 'verify':
         for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests'):
             call([args.python, '-m', 'pytest', tests, '-q'])
-        call(['npm', 'test', '--prefix', 'frontend'])
-        call(['npm', 'run', 'build', '--prefix', 'frontend'])
+        call([executable('npm'), 'test', '--prefix', 'frontend'])
+        call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
         call([args.python, '-m', 'compileall', '-q', 'backend', 'ai', 'scripts'])
     else:
         run(args)

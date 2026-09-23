@@ -221,17 +221,15 @@ def test_renamed_local_playlist_is_rejected(setup, tmp_path):
 
 
 def test_actual_worker_process_fixture_and_singleton_lock(setup):
-    import fcntl
     import os
     import subprocess
     import sys
+    from backend.worker import worker_lock
     client, store, settings = setup
     meeting = upload(client).json()
     environment = {**os.environ, 'DATA_DIR': str(settings.data_dir), 'DATABASE_PATH': str(settings.database), 'PIPELINE_MODE': 'fixture'}
     command = [sys.executable, '-m', 'backend.worker', '--once']
-    lockfile = settings.database.with_suffix('.worker.lock')
-    with lockfile.open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with worker_lock(settings):
         rejected = subprocess.run(command, env=environment, capture_output=True, timeout=15)
         assert rejected.returncode != 0
         assert store.get(meeting['id'])['status'] == 'queued'
@@ -241,6 +239,7 @@ def test_actual_worker_process_fixture_and_singleton_lock(setup):
 
 
 def test_direct_worker_shutdown_stops_stage_without_signalling_caller(tmp_path):
+    import ctypes
     import os
     import signal
     import subprocess
@@ -270,12 +269,28 @@ def test_direct_worker_shutdown_stops_stage_without_signalling_caller(tmp_path):
             time.sleep(.02)
         assert child_ready.exists(), 'Model stage did not start'
         child_pid = int(child_ready.read_text())
-        assert os.getpgid(worker.pid) == worker.pid
-        worker.send_signal(signal.SIGTERM)
-        assert worker.wait(timeout=3) == 128 + signal.SIGTERM
+        if os.name != 'nt':
+            assert os.getpgid(worker.pid) == worker.pid
+            worker.send_signal(signal.SIGTERM)
+            assert worker.wait(timeout=3) == 128 + signal.SIGTERM
+        else:
+            worker.terminate()
+            assert worker.wait(timeout=3) != 0
         assert sibling.poll() is None
-        with pytest.raises(ProcessLookupError):
-            os.kill(child_pid, 0)
+        if os.name == 'nt':
+            kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+            kernel32.OpenProcess.restype = ctypes.c_void_p
+            handle = kernel32.OpenProcess(0x1000, False, child_pid)
+            if handle:
+                exit_code = ctypes.c_ulong()
+                kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+                kernel32.CloseHandle(handle)
+                assert exit_code.value != 259
+            else:
+                assert not handle
+        else:
+            with pytest.raises(ProcessLookupError):
+                os.kill(child_pid, 0)
         assert store.get(meeting['id'])['status'] == 'processing'
         restarted = subprocess.run([sys.executable, '-m', 'backend.worker', '--once'],
                                    env=environment, capture_output=True, timeout=10)

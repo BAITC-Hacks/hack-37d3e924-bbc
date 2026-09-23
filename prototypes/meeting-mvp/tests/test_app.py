@@ -26,6 +26,7 @@ def test_source_selection_save_transcript_and_restore(tmp_path, monkeypatch):
     app.run()
     assert not app.exception
     assert any('выберите хотя бы одну' in err.value for err in app.error)
+    assert len(app.multiselect) == 1
     app.multiselect[0].select('S0001').run()
     assert not app.exception and not app.error
     next(b for b in app.button if b.label == 'Сохранить протокол и правки локально').click().run()

@@ -54,21 +54,74 @@ if st.session_state.get('restore_file'):
         st.session_state.setdefault('runs',[]).append(str(Path(st.session_state.audio_path).parent))
 
 st.markdown('''<style>
-.stApp{background:#f6f5f0;color:#202e31}
-[data-testid="stSidebar"]{background:#e9ece5}
-.block-container{max-width:1200px;padding-top:2.8rem}
-h1,h2,h3{letter-spacing:-.035em;color:#183c38}
-.eyebrow{font-size:12px;letter-spacing:.18em;color:#687b71;text-transform:uppercase;font-weight:700}
-.hero{font-size:48px;font-weight:650;line-height:1.12;letter-spacing:-.05em;margin:12px 0 16px;color:#183c38}
-.lead{font-size:17px;color:#66716e;max-width:700px;line-height:1.6;margin-bottom:28px}
-.pill{display:inline-block;border:1px solid #c6d4c7;background:#edf3e9;color:#41604b;border-radius:100px;padding:5px 12px;font-size:12px}
-.stButton>button[kind="primary"]{background:#234e43;border-color:#234e43;border-radius:8px}
-[data-testid="stMetric"]{background:#fff;border:1px solid #e0e5dc;border-radius:12px;padding:14px}
-[data-testid="stFileUploader"]{background:white;border-radius:12px}
-[data-testid="stDataFrame"]{border-radius:10px}
+:root{
+  --ivory:#f6f5f0;
+  --forest:#173d35;
+  --green:#26725c;
+  --ink:#1d302a;
+  --muted:#6b7b73;
+  --line:#d9dfd5;
+  --panel:#fffdf7;
+}
+.stApp{background:var(--ivory);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+[data-testid="stSidebar"]{background:var(--forest);color:#f6f5f0}
+[data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] p,[data-testid="stSidebar"] label,[data-testid="stSidebar"] span{color:#f6f5f0}
+[data-testid="stSidebar"] input,[data-testid="stSidebar"] textarea{color:var(--ink);background:#fffdf7}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{color:#d6e3dc}
+[data-testid="stSidebar"] [data-testid="stExpander"]{background:#214b41;border:1px solid rgba(246,245,240,.18);border-radius:8px}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary *{color:#f6f5f0}
+[data-testid="stSidebar"] .stButton>button{background:#f6f5f0;color:var(--forest);border-color:#d6e3dc}
+[data-testid="stSidebar"] .stButton>button *{color:var(--forest)}
+[data-testid="stSidebar"] [data-baseweb="select"] *{color:var(--ink)}
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"] [data-testid="stMarkdownContainer"] p{color:#f6f5f0}
+.block-container{max-width:1180px;padding-top:3.25rem;padding-bottom:3rem}
+h1,h2,h3{letter-spacing:0;color:var(--forest);font-weight:720}
+.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--green);text-transform:uppercase;font-weight:800}
+.hero{font-size:44px;font-weight:760;line-height:1.08;margin:10px 0 14px;color:var(--forest)}
+.hero.compact{font-size:28px;margin:4px 0 4px}
+.lead{font-size:17px;color:#51635b;max-width:760px;line-height:1.55;margin-bottom:20px}
+.pill{display:inline-block;border:1px solid #bdd1c6;background:#edf4ef;color:var(--forest);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700}
+.stepbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:20px 0 18px}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.step strong{display:block;color:var(--forest);font-size:14px}
+.step span{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.step.active{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.section-note{color:var(--muted);font-size:14px;margin-top:-8px;margin-bottom:14px}
+.stButton>button{border-radius:8px;border-color:#b9c8bf}
+.stButton>button[kind="primary"]{background:var(--green);border-color:var(--green);color:white}
+[data-testid="stMetric"],[data-testid="stFileUploader"],[data-testid="stDataFrame"],[data-testid="stExpander"]{background:var(--panel);border-radius:8px}
+[data-testid="stDataFrame"]{border:1px solid var(--line)}
+@media (max-width:760px){
+  .block-container{padding-top:4rem}
+  .hero{font-size:30px;line-height:1.12}
+  .hero.compact{font-size:24px}
+  .lead{font-size:15px}
+  .stepbar{grid-template-columns:1fr;gap:8px}
+  .step{padding:10px 12px}
+}
 footer{visibility:hidden}
 [data-testid="stAppDeployButton"]{display:none}
 </style>''', unsafe_allow_html=True)
+
+def stepbar(active):
+    labels = [('01','Запись','аудио или текст'),('02','Проверка','участники и реплики'),('03','Протокол','поручения и экспорт')]
+    html = ['<div class="stepbar">']
+    for number, title, caption in labels:
+        css = 'step active' if number == active else 'step'
+        html.append(f'<div class="{css}"><strong>{number} · {title}</strong><span>{caption}</span></div>')
+    html.append('</div>')
+    st.markdown(''.join(html), unsafe_allow_html=True)
+
+def analysis_disabled_reason(available, busy, segments):
+    if busy:
+        return 'Дождитесь завершения текущей обработки.'
+    if not segments:
+        return 'Сначала добавьте запись или текст.'
+    if not available['Поручения и саммари']:
+        return 'Модель поручений недоступна локально. Можно сохранить транскрипт или открыть синтетический пример.'
+    return ''
 
 def digest(segments, names, day):
     return hashlib.sha256(json.dumps([segments,names,day],ensure_ascii=False,sort_keys=True).encode()).hexdigest()
@@ -166,7 +219,7 @@ def job_monitor():
     if status['state']=='running' and job['proc'].poll() is not None:
         status = {'state':'error','label':'Обработка прервана. Проверьте журнал и свободную память.'}
     if status['state']=='running':
-        st.progress(float(status.get('progress',0)),text=status['label'])
+        st.info(status.get('label','Обработка выполняется.'))
         st.caption('Можно оставить эту страницу открытой. Обработка выполняется на вашем компьютере.')
         if st.button('Остановить обработку'):
             stop_process_tree(job['proc'])
@@ -210,12 +263,14 @@ with st.sidebar:
     count = st.number_input('Число говорящих',min_value=0,max_value=20,value=0,
         help='0 — определить автоматически. Указывайте только тех, чей голос есть в записи.')
     st.divider()
-    st.markdown('**Готовность моделей**')
     available = model_status()
-    for name, ready in available.items():
-        st.caption(('● ' if ready else '○ ')+name+(' · готово' if ready else ' · недоступно'))
-    if runtime_notice():
-        st.warning(runtime_notice())
+    ready_count = sum(1 for ready in available.values() if ready)
+    st.caption(f'Локальная готовность: {ready_count}/{len(available)}')
+    with st.expander('Диагностика моделей', expanded=False):
+        for name, ready in available.items():
+            st.caption(('● ' if ready else '○ ')+name+(' · готово' if ready else ' · недоступно'))
+        if runtime_notice():
+            st.warning(runtime_notice())
     st.caption('Данные хранятся локально. Обработка не обращается к облачным API.')
     st.caption('Для показа третьим лицам используйте обезличенные записи. Синтетический текст доступен ниже.')
     saved_options = {}
@@ -225,31 +280,34 @@ with st.sidebar:
             saved_options[str(saved_path)] = record.get('title','Совещание')+' · '+record.get('saved_at','')
         except (ValueError,OSError):
             continue
-    if saved_options:
-        saved_choice = st.selectbox('Сохранённые результаты',options=list(saved_options),format_func=saved_options.get,
-                                   disabled=bool(st.session_state.get('job')))
-        if st.button('Открыть сохранённое',disabled=bool(st.session_state.get('job'))):
-            st.session_state.restore_file = saved_choice
-            st.rerun()
-        if st.button('Удалить выбранное сохранение',disabled=bool(st.session_state.get('job'))):
-            candidate=Path(saved_choice).resolve()
-            if candidate.parent == DATA_DIR and candidate.name.startswith('review-') and candidate.suffix == '.json' and not candidate.is_symlink():
-                candidate.unlink(missing_ok=True)
-                st.success('Сохранение удалено.')
+    with st.expander('Сохранения и восстановление', expanded=bool(saved_options)):
+        if saved_options:
+            saved_choice = st.selectbox('Сохранённые результаты',options=list(saved_options),format_func=saved_options.get,
+                                       disabled=bool(st.session_state.get('job')))
+            if st.button('Открыть сохранённое',disabled=bool(st.session_state.get('job'))):
+                st.session_state.restore_file = saved_choice
                 st.rerun()
-    completed = [(run,status) for run,status in managed_runs() if status.get('state') == 'done']
-    if completed:
-        recovery = st.selectbox('Завершённые задачи для восстановления',options=[str(run) for run,_ in completed],
-            format_func=lambda value: Path(value).name)
-        if st.button('Восстановить результат',disabled=bool(st.session_state.get('job'))):
-            st.session_state.restore_run = recovery
-            st.rerun()
-        if st.button('Удалить выбранную завершённую задачу',disabled=bool(st.session_state.get('job'))):
-            candidate=Path(recovery).resolve()
-            if candidate.parent == DATA_DIR and len(candidate.name) == 32 and candidate.is_dir() and not candidate.is_symlink():
-                shutil.rmtree(candidate)
-                st.success('Локальные файлы задачи удалены.')
+            if st.button('Удалить выбранное сохранение',disabled=bool(st.session_state.get('job'))):
+                candidate=Path(saved_choice).resolve()
+                if candidate.parent == DATA_DIR and candidate.name.startswith('review-') and candidate.suffix == '.json' and not candidate.is_symlink():
+                    candidate.unlink(missing_ok=True)
+                    st.success('Сохранение удалено.')
+                    st.rerun()
+        else:
+            st.caption('Сохранённые протоколы появятся здесь.')
+        completed = [(run,status) for run,status in managed_runs() if status.get('state') == 'done']
+        if completed:
+            recovery = st.selectbox('Завершённые задачи для восстановления',options=[str(run) for run,_ in completed],
+                format_func=lambda value: Path(value).name)
+            if st.button('Восстановить результат',disabled=bool(st.session_state.get('job'))):
+                st.session_state.restore_run = recovery
                 st.rerun()
+            if st.button('Удалить выбранную завершённую задачу',disabled=bool(st.session_state.get('job'))):
+                candidate=Path(recovery).resolve()
+                if candidate.parent == DATA_DIR and len(candidate.name) == 32 and candidate.is_dir() and not candidate.is_symlink():
+                    shutil.rmtree(candidate)
+                    st.success('Локальные файлы задачи удалены.')
+                    st.rerun()
     if st.button('Удалить данные текущей сессии',disabled=bool(st.session_state.get('job'))):
         for run in st.session_state.get('runs',[]):
             candidate=Path(run).resolve()
@@ -263,19 +321,34 @@ with st.sidebar:
             del st.session_state[key]
         st.rerun()
 
+has_transcript = 'transcript' in st.session_state
 st.markdown('<div class="eyebrow">Аудио → решения → действия</div>',unsafe_allow_html=True)
-st.markdown('<div class="hero">Совещание заканчивается.<br>Поручения остаются.</div>',unsafe_allow_html=True)
-st.markdown('<div class="lead">Превратите запись в протокол. Проверьте участников, уточните сроки и передайте команде понятный список действий.</div>',unsafe_allow_html=True)
+if has_transcript:
+    st.markdown('<div class="hero compact">Проверьте реплики и протокол</div>',unsafe_allow_html=True)
+    st.markdown('<div class="lead">Дальше всё зависит от проверенных источников: участники, исходные реплики и текущий список поручений.</div>',unsafe_allow_html=True)
+else:
+    st.markdown('<div class="hero">Совещание заканчивается.<br>Поручения остаются.</div>',unsafe_allow_html=True)
+    st.markdown('<div class="lead">Превратите запись в протокол. Проверьте участников, уточните сроки и передайте команде понятный список действий.</div>',unsafe_allow_html=True)
 st.markdown('<span class="pill">● На вашем компьютере · RU / KZ / смешанная речь</span>',unsafe_allow_html=True)
 st.write('')
 
 busy = bool(st.session_state.get('job'))
+stepbar('01' if 'transcript' not in st.session_state else ('03' if 'analysis' in st.session_state else '02'))
 with st.expander('1 · Добавить запись или текст',expanded='transcript' not in st.session_state):
     audio_tab,text_tab = st.tabs(['Аудиозапись','Готовый текст / демо'])
     with audio_tab:
         uploaded = st.file_uploader('Запись совещания',type=['mp3','wav','m4a','ogg','flac','mp4'],disabled=busy)
         st.caption('До 30 минут и 200 МБ. Участники должны быть уведомлены о записи и обработке.')
-        if st.button('Распознать запись',type='primary',disabled=busy or uploaded is None or not all(list(available.values())[:2])):
+        audio_reason = ''
+        if busy:
+            audio_reason = 'Дождитесь завершения текущей обработки.'
+        elif uploaded is None:
+            audio_reason = 'Выберите аудиофайл, чтобы начать распознавание.'
+        elif not all(list(available.values())[:2]):
+            audio_reason = 'Для распознавания нужны локальные модели речи и разделения говорящих.'
+        if audio_reason:
+            st.caption(audio_reason)
+        if st.button('Распознать запись',type='primary',disabled=bool(audio_reason)):
             start_job('audio',{'num_speakers':int(count) if count else -1},uploaded)
             st.rerun()
     with text_tab:
@@ -332,7 +405,10 @@ segments = json.loads(edited.to_json(orient='records',force_ascii=False))
 current_hash = digest(segments,names,meeting_date)
 st.download_button('Скачать транскрипт TXT',transcript_text(segments,names),file_name='transcript.txt',mime='text/plain')
 save_transcript = st.button('Сохранить транскрипт локально',disabled=busy)
-if st.button('Сформировать поручения и саммари',type='primary',disabled=busy or not available['Поручения и саммари'] or not segments):
+analysis_reason = analysis_disabled_reason(available, busy, segments)
+if analysis_reason:
+    st.caption(analysis_reason)
+if st.button('Сформировать поручения и саммари',type='primary',disabled=bool(analysis_reason)):
     start_job('analysis',{'segments':segments,'names':names,'meeting_date':meeting_date,'hash':current_hash,
                          'source':data.get('source'),'warnings':data.get('warnings',[]),
                          'audio_path':local_audio_path(st.session_state.get('audio_path')),
@@ -352,23 +428,28 @@ for warning in analysis.get('warnings',[]):
     st.text(warning)
 aid = st.session_state.analysis_id
 summary = st.text_area('Краткое содержание',value=analysis.get('summary',''),height=180,key=f'summary-{aid}',disabled=busy)
-task_cols = ['task','owner','due_text','due_date','review','status','quote','start','source_ids']
-table = pd.DataFrame(analysis.get('tasks',[]),columns=task_cols)
+source_control_cols = ['quote','start','source_ids']
+task_cols = ['task','owner','due_text','due_date','review','status']
+base_tasks = analysis.get('tasks',[])
+table = pd.DataFrame([{column: task.get(column,'') for column in task_cols} for task in base_tasks],columns=task_cols)
 for column in ['task', 'owner', 'due_text', 'due_date', 'review', 'status']:
     table[column] = table[column].fillna('').astype(str)
 tasks_edit = st.data_editor(table,hide_index=True,width='stretch',num_rows='dynamic',key=f'tasks-{aid}',
-    disabled=True if busy else ['quote','start'],column_config={
+    disabled=busy,column_config={
         'task':st.column_config.TextColumn('Поручение',width='large',required=True),
         'owner':st.column_config.TextColumn('Ответственный'),
         'due_text':st.column_config.TextColumn('Срок из речи'),
         'due_date':st.column_config.TextColumn('Дата YYYY-MM-DD'),
         'review':st.column_config.TextColumn('Уточнить'),
-        'status':st.column_config.SelectboxColumn('Статус',options=['На проверке','В работе','Выполнено']),
-        'quote':None,'start':None,
-        'source_ids':st.column_config.MultiselectColumn('Исходные реплики',
-            options=[s['id'] for s in segments],required=True)})
-tasks = json.loads(tasks_edit.to_json(orient='records',force_ascii=False))
-tasks = [t for t in tasks if t.get('task')]
+        'status':st.column_config.SelectboxColumn('Статус',options=['На проверке','В работе','Выполнено'])})
+edited_rows = json.loads(tasks_edit.to_json(orient='records',force_ascii=False))
+tasks = []
+for index, row in enumerate(edited_rows):
+    if not row.get('task'):
+        continue
+    base = base_tasks[index] if index < len(base_tasks) and isinstance(base_tasks[index], dict) else {}
+    preserved = {column: base.get(column) for column in source_control_cols if column in base}
+    tasks.append({**preserved, **row})
 with st.expander('Выбрать источники и проверить поручения', expanded=True):
     source_labels = {s['id']: f"{s['id']} · {s['text'][:160]}" for s in segments}
     for i, t in enumerate(tasks, 1):

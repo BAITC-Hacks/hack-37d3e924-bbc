@@ -93,3 +93,79 @@ def test_copy_corruption_preserves_destination(local_models, monkeypatch):
         download_models.main(['--from-local', str(source)])
     assert target.read_bytes() == b'previous file'
     assert not list(dest.rglob('*.download'))
+
+
+@pytest.fixture
+def component_models(local_models):
+    source, dest = local_models
+    manifest_path = download_models.ROOT / 'models.lock.json'
+    manifest = json.loads(manifest_path.read_text())
+    for name, content in [('diarization/segmentation.onnx', b'test segmentation'),
+                          ('diarization/embedding.onnx', b'test embedding'),
+                          ('llm/model.safetensors', b'test language weights')]:
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        manifest['files'].append({'path': name, 'bytes': len(content),
+                                  'sha256': hashlib.sha256(content).hexdigest(),
+                                  'url': 'https://invalid.example/model'})
+    manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+    return source, dest, manifest
+
+
+def read_receipt(dest):
+    receipt = json.loads((dest / '.meeting-models-verified.json').read_text(encoding='utf-8'))
+    assert receipt['schema_version'] == 1
+    assert receipt['manifest'] == download_models.sha256(download_models.ROOT / 'models.lock.json')
+    return receipt['files']
+
+
+def test_component_copy_receipt_contains_only_verified_files(component_models):
+    source, dest, manifest = component_models
+    # Missing unselected weights must neither trigger a download nor enter the receipt.
+    (source / 'asr/model.pt').unlink()
+    download_models.main(['--from-local', str(source), '--component', 'diarization'])
+    assert not (dest / 'asr').exists()
+    assert not (dest / 'llm').exists()
+    expected = [{key: item[key] for key in ('path', 'bytes', 'sha256')}
+                for item in manifest['files'] if item['path'].startswith('diarization/')]
+    assert read_receipt(dest) == expected
+
+
+def test_repeated_components_preserve_previously_verified_group(component_models):
+    source, dest, manifest = component_models
+    download_models.main(['--from-local', str(source), '--component', 'diarization'])
+    for path in (source / 'diarization').iterdir():
+        path.unlink()
+    download_models.main(['--from-local', str(source), '--component', 'asr', '--component', 'llm'])
+    assert {item['path'] for item in read_receipt(dest)} == {
+        item['path'] for item in manifest['files']}
+
+
+def test_verify_only_checks_selected_component_offline(component_models):
+    source, dest, _ = component_models
+    download_models.main(['--from-local', str(source), '--component', 'diarization'])
+    original_receipt = read_receipt(dest)
+    download_models.main(['--verify-only', '--component', 'diarization'])
+    assert read_receipt(dest) == original_receipt
+    assert not (dest / 'asr').exists()
+
+
+def test_receipt_rechecks_unselected_files_even_when_size_matches(component_models):
+    source, dest, manifest = component_models
+    download_models.main(['--from-local', str(source)])
+    corrupted = dest / 'asr/model.pt'
+    corrupted.write_bytes(b'x' * corrupted.stat().st_size)
+    download_models.main(['--verify-only', '--component', 'diarization'])
+    assert {item['path'] for item in read_receipt(dest)} == {
+        item['path'] for item in manifest['files'] if item['path'] != 'asr/model.pt'}
+
+
+def test_failed_verification_invalidates_old_receipt(local_models):
+    source, dest = local_models
+    download_models.main(['--from-local', str(source)])
+    corrupted = dest / 'asr/model.pt'
+    corrupted.write_bytes(b'x' * corrupted.stat().st_size)
+    with pytest.raises(RuntimeError, match='Модель отсутствует'):
+        download_models.main(['--verify-only'])
+    assert not (dest / '.meeting-models-verified.json').exists()

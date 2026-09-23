@@ -20,7 +20,7 @@ def export_docx(meeting):
     section.top_margin = section.bottom_margin = Cm(2)
     section.left_margin = section.right_margin = Cm(2)
     document.core_properties.author = ''
-    document.core_properties.last_modified_by = '' 
+    document.core_properties.last_modified_by = ''
     if meeting['mode'] == 'fixture':
         document.add_paragraph('ТЕСТОВЫЙ РЕЗУЛЬТАТ — синтетический пример; модели не запускались.')
     document.add_heading(meeting['title'], 0)

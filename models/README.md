@@ -32,6 +32,18 @@ make up PROFILE=mac MODELS="$PWD/.local/models"
 python3 scripts/download_models.py --directory .local/models --verify-only
 ```
 
+Если GitHub CLI повторяет `PROTOCOL_ERROR` или `connection reset by peer`
+на больших файлах, повторите загрузку с HTTP/1.1 (это помогло в сети,
+где проверялся релиз):
+
+```bash
+GODEBUG=http2client=0 python3 scripts/download_models.py --directory .local/models
+```
+
+В PowerShell: `$env:GODEBUG = 'http2client=0'`, затем та же команда через `py`.
+Это настройка сетевого транспорта GitHub CLI; контрольные суммы по-прежнему
+проверяются для всех файлов.
+
 Можно загрузить только нужные компоненты; лицензии сохраняются всегда:
 
 ```bash

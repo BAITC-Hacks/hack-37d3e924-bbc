@@ -95,6 +95,25 @@ def test_single_asset_and_component_selection(tmp_path, monkeypatch):
     assert (tmp_path / 'asr/model.pt').read_bytes() == b'first'
 
 
+def test_interrupted_download_is_retried(tmp_path, monkeypatch):
+    calls = fake_gh(monkeypatch, {'model.part-0': b'first'})
+    success = download.subprocess.run
+    attempts = []
+
+    def interrupted(args):
+        attempts.append(args)
+        if len(attempts) == 1:
+            (Path(args[args.index('--dir') + 1]) / 'model.part-0').write_bytes(b'fi')
+            return type('Result', (), {'returncode': 1})()
+        return success(args)
+
+    monkeypatch.setattr(download.subprocess, 'run', interrupted)
+    monkeypatch.setattr(download.time, 'sleep', lambda _: None)
+    download.install(manifest((b'first',)), tmp_path)
+    assert len(attempts) == 2
+    assert (tmp_path / 'asr/model.pt').read_bytes() == b'first'
+
+
 def test_release_preserves_original_model_pins():
     import json
     root = Path(__file__).parents[2]

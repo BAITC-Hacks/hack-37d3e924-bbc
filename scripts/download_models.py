@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 
 def digest(path):
@@ -70,11 +71,17 @@ def fetch_asset(manifest, asset, cache):
         raise RuntimeError('Install GitHub CLI (gh), then run gh auth login.')
     cache.mkdir(parents=True, exist_ok=True)
     # gh authenticates private release downloads without putting tokens in URLs.
-    result = subprocess.run([
-        'gh', 'release', 'download', manifest['tag'],
-        '--repo', manifest['repository'], '--pattern', asset['name'],
-        '--dir', str(cache), '--clobber',
-    ])
+    for attempt in range(3):
+        result = subprocess.run([
+            'gh', 'release', 'download', manifest['tag'],
+            '--repo', manifest['repository'], '--pattern', asset['name'],
+            '--dir', str(cache), '--clobber',
+        ])
+        if result.returncode == 0:
+            break
+        if attempt < 2:
+            print('Повтор загрузки:', asset['name'], flush=True)
+            time.sleep(2 ** attempt)
     if result.returncode:
         raise RuntimeError('Download failed. Check gh auth status and repository access; '
                            'rerun the same command to reuse verified files.')

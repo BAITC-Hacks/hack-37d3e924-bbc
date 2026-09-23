@@ -96,9 +96,7 @@ def environment(args):
     if args.profile == 'mac':
         if platform.system() != 'Darwin' or platform.machine() != 'arm64':
             raise SystemExit('Профиль mac требует macOS Apple Silicon. Для Linux используйте --profile cuda.')
-        models = args.models or env.get('MEETING_MODEL_DIR')
-        if not models:
-            raise SystemExit('Укажите --models /path/to/models или MEETING_MODEL_DIR в .env.')
+        models = args.models or env.get('MEETING_MODEL_DIR') or ROOT / 'models'
         folder = Path(models).expanduser().resolve()
         env.update(AI_ASR='mixed_ctc', AI_ASR_PATH=str(folder / 'asr'),
                    AI_DIARIZER='sherpa', AI_DIARIZATION_PATH=str(folder / 'diarization'),
@@ -127,6 +125,8 @@ def run(args):
     env = environment(args)
     if not (ROOT / 'frontend/dist/index.html').exists():
         raise SystemExit('Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend.')
+    if args.profile == 'mac' and Path(env['AI_ASR_PATH']).parent == ROOT / 'models':
+        call([sys.executable, ROOT / 'scripts/prepare_repo_models.py'])
     if args.profile != 'fixture':
         if args.profile == 'windows':
             check_windows(args, env)

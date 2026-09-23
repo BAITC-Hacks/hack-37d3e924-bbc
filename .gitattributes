@@ -1,0 +1,6 @@
+# Preserve pinned model bytes even with core.autocrlf on Windows.
+/models/asr/** -text
+/models/diarization/** -text
+/models/llm/** -text
+/models/licenses/** -text
+/models/**/*.part-* -diff

@@ -2,6 +2,8 @@
 
 Русская, казахская и смешанная речь → расшифровка с говорящими → поручения с источниками → проверка человеком → сохранённый DOCX. Аудио и текст обрабатываются локальными моделями; облачного fallback нет.
 
+**Веса уже включены в репозиторий: [models/asr](models/asr), [models/diarization](models/diarization), [models/llm](models/llm).** После `git clone` или `git pull` выполните `python3 scripts/prepare_repo_models.py` (на Windows: `py scripts/prepare_repo_models.py`). Команда соберёт большие файлы из частей и проверит SHA-256 без сети. Git LFS и GitHub CLI для этого способа не нужны. [Инструкция для команды](models/README.md).
+
 ## Запуск приложения
 
 Основной интерфейс: React/TypeScript, FastAPI, SQLite и отдельный worker, который вызывает `ai.pipeline.run_pipeline`. API не загружает модели. Исходный результат сохраняется отдельно от исправлений; одновременные правки защищены номером версии.
@@ -13,17 +15,10 @@
 ```bash
 cp .env.example .env
 make setup PROFILE=mac
-# Нужен GitHub CLI и аккаунт с доступом к этому закрытому репозиторию:
-gh auth login
-python3 scripts/download_models.py --directory .local/models
-make up PROFILE=mac MODELS="$PWD/.local/models"
+make up PROFILE=mac
 ```
 
-Каталог должен содержать `asr/model.pt`, `asr/tokens.lst`, `diarization/segmentation.onnx`, `diarization/embedding.onnx` и полный каталог `llm/` с MLX Qwen. На машине участника проверен путь:
-
-```text
-/Users/daryn/Documents/Codex/2026-09-23/x20/work/models
-```
+По умолчанию запуск использует `models/` этого репозитория и сам собирает веса при необходимости. Комплект: `asr/model.pt`, `asr/tokens.lst`, `diarization/segmentation.onnx`, `diarization/embedding.onnx` и полный каталог `llm/` с MLX Qwen. Другой каталог можно явно указать через `MODELS=/absolute/path/to/models`.
 
 Проверка ранее скачанных файлов без сети:
 
@@ -31,7 +26,7 @@ make up PROFILE=mac MODELS="$PWD/.local/models"
 MEETING_MODEL_DIR=/absolute/path/to/models .venv/bin/python prototypes/meeting-mvp/download_models.py --verify-only
 ```
 
-Веса доступны в [GitHub Release models-mac-v1](https://github.com/BAITC-Hacks/hack-37d3e924-bbc/releases/tag/models-mac-v1): загрузчик выше не обращается к недоступному источнику Hugging Face. Комплект занимает около 3.08 ГБ; для скачивания и сборки подготовьте 6 ГБ свободного места. [Инструкция, отдельные компоненты и лицензии](models/README.md). Тяжёлые файлы не входят в историю Git.
+Все части весов хранятся непосредственно в Git. Комплект занимает около 3.08 ГБ; с историей Git и собранными копиями подготовьте 12 ГБ свободного места. Резервная копия также доступна в [GitHub Release models-mac-v1](https://github.com/BAITC-Hacks/hack-37d3e924-bbc/releases/tag/models-mac-v1). [Инструкция, отдельные компоненты и лицензии](models/README.md).
 
 Можно также использовать имеющийся каталог или перенести веса с подготовленной машины: [подключение и копирование](prototypes/meeting-mvp/README.md#уже-скачанные-веса-и-ошибка-401403). На другом компьютере локальный путь будет другим. GitHub хранит веса, а для обработки приложение нужно запустить на совместимой машине.
 

@@ -1,4 +1,4 @@
-.PHONY: setup run up verify prototype help
+.PHONY: setup run up verify prototype models help
 PYTHON ?= python3.12
 PROFILE ?= mac
 MODELS ?=
@@ -8,11 +8,15 @@ help:
 	@echo 'make up PROFILE=mac MODELS=/path/to/models — приложение и worker; Ctrl+C останавливает оба'
 	@echo 'make up PROFILE=fixture — явно синтетический сценарий без моделей'
 	@echo 'make verify — тесты и сборка; make prototype — прежний Streamlit'
+	@echo 'make models — собрать и проверить веса из папки models без сети'
 
 run: up
 
 setup:
 	$(PYTHON) scripts/manage.py setup --profile $(PROFILE)
+
+models:
+	$(PYTHON) scripts/prepare_repo_models.py
 
 up:
 	$(PYTHON) scripts/manage.py run --profile $(PROFILE) $(if $(MODELS),--models "$(MODELS)",)

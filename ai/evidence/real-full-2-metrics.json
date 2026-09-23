@@ -1,0 +1,60 @@
+{
+  "duration_seconds": 206.03125,
+  "wall_seconds": 166.45,
+  "stages": [
+    {
+      "stage": "preparing_audio",
+      "wall_seconds": 0.511,
+      "peak_rss_bytes": 38092800,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "transcribing",
+      "wall_seconds": 27.408,
+      "peak_rss_bytes": 1562869760,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "diarizing",
+      "wall_seconds": 49.961,
+      "peak_rss_bytes": 325255168,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "extracting_tasks",
+      "wall_seconds": 86.261,
+      "peak_rss_bytes": 706117632,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": 3142627024,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    }
+  ],
+  "profile": {
+    "asr": "mixed_ctc",
+    "diarizer": "sherpa",
+    "llm": "mlx",
+    "device": "cpu",
+    "requested_compute_type": "float16",
+    "requested_transformers_quantization": "none",
+    "compute_type": "original CTC checkpoint; option applies only to Whisper",
+    "quantization": "MLX checkpoint 4-bit; Transformers option not applied"
+  },
+  "result_counts": {
+    "segments": 25,
+    "speaker_tracks": 6,
+    "tasks": 8,
+    "tasks_with_assignee": 0,
+    "tasks_with_date": 0
+  },
+  "note": "Private recording processed locally; content excluded. Benchmark uses synthetic metadata/date and empty known participants, not a verified protocol."
+}

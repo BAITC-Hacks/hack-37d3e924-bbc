@@ -1,0 +1,12 @@
+# Candidate Linux/Python 3.12 environment; GPU smoke test is still required.
+-r requirements-base.txt
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+pyannote.audio==4.0.7
+# Keep torch and torchaudio paired; TorchCodec 0.8 is for Torch 2.9.
+torch==2.9.0
+torchaudio==2.9.0
+torchcodec==0.8.1
+transformers==4.57.1
+accelerate==1.15.0
+bitsandbytes==0.50.2

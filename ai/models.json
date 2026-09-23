@@ -1,0 +1,8 @@
+{
+  "whisper-large-v3": {"repo": "openai/whisper-large-v3", "revision": "06f233fe06e710322aca913c1bc4249a0d71fce1", "license": "Apache-2.0 (HF metadata)", "kind": "whisper"},
+  "whisper-turbo": {"repo": "openai/whisper-large-v3-turbo", "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9", "license": "MIT", "kind": "whisper"},
+  "kazakh-turbo": {"repo": "shyngys879/kazakh-whisper-large-v3-turbo", "revision": "dafae810c95496f66184605824be5a0a971d3c09", "license": "Apache-2.0", "kind": "whisper"},
+  "mixed-ctc": {"repo": "alibiserikbay/kazakh-russian-mixed-stt", "revision": "26298d2a61dc1573bfc11b7055c7d09a1e64b8a4", "license": "Apache-2.0", "kind": "ctc"},
+  "community1": {"repo": "pyannote/speaker-diarization-community-1", "revision": "3533c8cf8e369892e6b79ff1bf80f7b0286a54ee", "license": "CC-BY-4.0", "gated": true, "kind": "diarization"},
+  "qwen14b": {"repo": "Qwen/Qwen3-14B", "revision": "40c069824f4251a91eefaf281ebe4c544efd3e18", "license": "Apache-2.0", "kind": "llm"}
+}

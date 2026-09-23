@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import resource
 import sys
 import tempfile
 import time
@@ -30,11 +29,11 @@ def main():
     from .settings import Settings
     from .audio import prepare_audio
     from .asr import transcribe
-    from .worker import OFFLINE_ENV,deny_network
+    from .worker import OFFLINE_ENV,deny_network,peak_rss_bytes
     os.environ.update(OFFLINE_ENV);os.umask(0o077);sys.addaudithook(deny_network)
     settings=Settings.from_env()
     results=[]
-    for item in json.loads(args.manifest.read_text()):
+    for item in json.loads(args.manifest.read_text(encoding='utf-8')):
         with tempfile.TemporaryDirectory(prefix='asr-eval-') as d:
             audio=Path(d)/'audio.wav'
             duration=prepare_audio(item['audio_path'],audio,settings.max_seconds)
@@ -50,10 +49,9 @@ def main():
                 'cer':distance(ref,hyp)/max(1,len(ref)), 'hypothesis':hypothesis,'words':words}
             results.append(result)
             print(item['id'],'complete',flush=True)
-    rss=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     args.output.write_text(json.dumps({'asr':settings.asr,'compute_type':settings.compute_type if settings.asr=='whisper' else 'checkpoint',
-        'device':settings.device,'language':settings.language,'peak_rss_bytes':rss if sys.platform=='darwin' else rss*1024,
+        'device':settings.device,'language':settings.language,'peak_rss_bytes':peak_rss_bytes(),
         'normalization':'Unicode lower-case, punctuation removed, digits are NOT expanded; no translation.',
-        'clips':results},ensure_ascii=False,indent=2))
+        'clips':results},ensure_ascii=False,indent=2),encoding='utf-8')
 
 if __name__=='__main__':main()

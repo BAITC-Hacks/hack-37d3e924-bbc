@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 def main():
-    manifest=json.loads((Path(__file__).parent/'models.json').read_text())
+    manifest=json.loads((Path(__file__).parent/'models.json').read_text(encoding='utf-8'))
     parser=argparse.ArgumentParser()
     parser.add_argument('model',choices=manifest)
     parser.add_argument('--directory',required=True,type=Path)
@@ -39,7 +39,7 @@ def main():
             for block in iter(lambda:f.read(1024*1024),b''):h.update(block)
         files.append({'path':str(p.relative_to(target)),'sha256':h.hexdigest(),'bytes':p.stat().st_size})
     (target/'provenance.json').write_text(json.dumps({**spec,'converted':args.convert,
-        'quantization':args.quantization if args.convert else None,'files':files},indent=2))
+        'quantization':args.quantization if args.convert else None,'files':files},indent=2),encoding='utf-8')
     print('Prepared local model and provenance:',target)
 
 if __name__=='__main__':main()

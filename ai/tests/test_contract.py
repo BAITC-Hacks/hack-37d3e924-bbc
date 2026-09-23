@@ -9,7 +9,7 @@ from ai.errors import PipelineError
 ROOT=Path(__file__).resolve().parents[1]
 @pytest.fixture
 def pair():
-    return tuple(json.loads((ROOT/'fixtures'/f'{name}.json').read_text()) for name in ('input','result'))
+    return tuple(json.loads((ROOT/'fixtures'/f'{name}.json').read_text(encoding='utf-8')) for name in ('input','result'))
 
 def test_fixture_explicit_and_valid(monkeypatch,pair):
     request,result=pair

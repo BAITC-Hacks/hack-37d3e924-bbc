@@ -30,6 +30,14 @@ def ctc_words(logits, token_map, offset, duration):
     flush()
     return words
 
+def ctc_token_map(asr_path):
+    tokens = {}
+    for line in (Path(asr_path)/'tokens.lst').read_text(encoding='utf-8').splitlines():
+        if line.strip():
+            symbol, index = line.split('\t')
+            tokens[int(index)] = symbol
+    return tokens
+
 def transcribe(audio_path, settings):
     import soundfile as sf
     words = []
@@ -52,11 +60,7 @@ def transcribe(audio_path, settings):
             import torch
             torch.set_num_threads(settings.threads)
             model = torch.jit.load(str(Path(settings.asr_path)/'model.pt'), map_location=settings.device).eval()
-            tokens = {}
-            for line in (Path(settings.asr_path)/'tokens.lst').read_text().splitlines():
-                if line.strip():
-                    symbol, index = line.split('\t')
-                    tokens[int(index)] = symbol
+            tokens = ctc_token_map(settings.asr_path)
             for a,b,left,right in windows(duration, core=12, context=.8):
                 audio.seek(int(left*sr))
                 clip = audio.read(int((right-left)*sr), dtype='float32')

@@ -3,9 +3,10 @@ from docx import Document
 from docx.shared import Cm, Pt, RGBColor
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from core import stamp
+from core import stamp, validate_review
 
-def build_docx(title, meeting_date, analysis, segments, names, include_transcript=True):
+def build_docx(title, meeting_date, analysis, segments, names, include_transcript=True, source=None):
+    analysis = validate_review(analysis, segments)
     doc = Document()
     for style in doc.styles:
         for border in list(style.element.iter(qn('w:pBdr'))):
@@ -27,6 +28,18 @@ def build_docx(title, meeting_date, analysis, segments, names, include_transcrip
     doc.add_paragraph(title or 'Совещание')
     doc.add_paragraph('Дата: ' + (meeting_date or 'не указана'))
     doc.add_paragraph('Черновик для проверки секретарём. Имена, сроки и факты требуют подтверждения.')
+    source_warnings = []
+    if source in ('synthetic_text','fixture'):
+        source_warnings.append('Источник: синтетический демонстрационный текст. Не использовать как доказательство реальной встречи.')
+    if source_warnings or analysis.get('warnings'):
+        doc.add_heading('Предупреждения', 1)
+        for warning in source_warnings + [w for w in analysis.get('warnings', []) if isinstance(w, str)]:
+            doc.add_paragraph(warning)
+    if names:
+        doc.add_heading('Участники', 1)
+        for speaker, name in sorted(names.items()):
+            label = name if name else speaker
+            doc.add_paragraph(str(label))
     doc.add_heading('Краткое содержание', 1)
     doc.add_paragraph(analysis.get('summary') or 'Не сформировано')
     doc.add_heading('Поручения', 1)

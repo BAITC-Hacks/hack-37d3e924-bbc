@@ -6,18 +6,25 @@ import shutil
 import subprocess
 import sys
 import uuid
+from copy import deepcopy
 from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
 from config import ROOT, DATA_DIR, model_status, offline_env, runtime_notice
-from core import read_json, write_json, stamp, text_segments, transcript_text
+from core import read_json, write_json, stamp, text_segments, transcript_text, validate_review
 from export_docx import build_docx
 from process_utils import stop_process_tree, worker_popen_kwargs
 
 st.set_page_config(page_title='Хаттама · Протокол совещания', page_icon='◉', layout='wide')
 DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
 os.chmod(DATA_DIR, 0o700)
+
+def local_audio_path(value):
+    if not isinstance(value, str):
+        return None
+    candidate = Path(value).resolve()
+    return str(candidate) if candidate.is_relative_to(DATA_DIR) and candidate.is_file() else None
 
 # Apply a restore before any widgets with the same keys are instantiated.
 if st.session_state.get('restore_file'):
@@ -26,8 +33,8 @@ if st.session_state.get('restore_file'):
     restored_id = uuid.uuid4().hex[:8]
     st.session_state.doc_id = restored_id
     st.session_state.transcript = saved['transcript']
-    candidate = Path(saved['audio_path']) if saved.get('audio_path') else None
-    st.session_state.audio_path = str(candidate) if candidate and candidate.is_file() and candidate.resolve().is_relative_to(DATA_DIR) else None
+    st.session_state.original = saved.get('original')
+    st.session_state.audio_path = local_audio_path(saved.get('audio_path'))
     st.session_state.meeting_title = saved.get('title','Совещание')
     st.session_state.meeting_date = date.fromisoformat(saved['meeting_date']) if saved.get('meeting_date') else None
     for speaker, name in saved.get('names',{}).items():
@@ -39,7 +46,7 @@ if st.session_state.get('restore_file'):
     st.session_state.analysis_id = uuid.uuid4().hex[:8]
     st.session_state.setdefault('saved_files',[]).append(str(saved_path))
     if st.session_state.audio_path:
-        st.session_state.setdefault('runs',[]).append(str(candidate.parent))
+        st.session_state.setdefault('runs',[]).append(str(Path(st.session_state.audio_path).parent))
 
 st.markdown('''<style>
 .stApp{background:#f6f5f0;color:#202e31}
@@ -65,14 +72,18 @@ def new_transcript(data, audio_path=None):
     st.session_state.doc_id = uuid.uuid4().hex[:8]
     st.session_state.transcript = data
     st.session_state.audio_path = str(audio_path) if audio_path else None
+    st.session_state.original = {'transcript':deepcopy(data), 'analysis':None}
     st.session_state.pop('analysis',None)
     st.session_state.pop('analysis_hash',None)
 
 def save_review(title, meeting_date, transcript, segments, names, current_hash, analysis=None):
+    if analysis is not None:
+        analysis = validate_review(analysis, segments)
     destination = DATA_DIR/f'review-{st.session_state.doc_id}.json'
     payload = {'version':1,'title':title,'saved_at':datetime.now().isoformat(timespec='seconds'),
                'meeting_date':meeting_date,'transcript':{**transcript,'segments':segments},'names':names,
                'audio_path':st.session_state.get('audio_path'),'analysis':analysis,
+               'original':st.session_state.get('original'),
                'analysis_hash':current_hash if analysis is not None else None}
     write_json(destination,payload)
     st.session_state.setdefault('saved_files',[]).append(str(destination))
@@ -118,11 +129,15 @@ def recover_run(run, status):
             request = read_json(run/'request.json')
             if not isinstance(request.get('segments'), list):
                 return False
-            new_transcript({'segments':request['segments'],'source':'recovered_analysis','duration':None,'warnings':[]})
+            new_transcript({'segments':request['segments'],'source':request.get('source','recovered_analysis'),
+                            'duration':None,'warnings':request.get('warnings',[])},
+                           local_audio_path(request.get('audio_path')))
             st.session_state.meeting_date = date.fromisoformat(request['meeting_date']) if request.get('meeting_date') else None
             for speaker, name in request.get('names', {}).items():
                 st.session_state[f'name-{st.session_state.doc_id}-{speaker}'] = name
             st.session_state.analysis=read_json(run/'analysis.json')
+            st.session_state.original = {'transcript':request.get('original_transcript'),
+                                         'analysis':deepcopy(st.session_state.analysis)}
             st.session_state.analysis_hash=request.get('hash')
             st.session_state.analysis_id=uuid.uuid4().hex[:8]
         else:
@@ -153,6 +168,9 @@ def job_monitor():
             new_transcript(read_json(run/'transcript.json'),run/'audio.wav')
         else:
             st.session_state.analysis = read_json(run/'analysis.json')
+            original = deepcopy(st.session_state.get('original') or {'transcript':None})
+            original['analysis'] = deepcopy(st.session_state.analysis)
+            st.session_state.original = original
             st.session_state.analysis_hash = job['hash']
             st.session_state.analysis_id = uuid.uuid4().hex[:8]
         st.session_state.last_elapsed = status.get('elapsed_seconds')
@@ -164,6 +182,12 @@ def job_monitor():
         if st.button('Закрыть ошибку'):
             st.session_state.pop('job')
             st.rerun()
+
+if st.session_state.get('restore_run'):
+    requested_run = st.session_state.pop('restore_run')
+    selected = next((pair for pair in managed_runs() if str(pair[0]) == requested_run), None)
+    if not selected or not recover_run(*selected):
+        st.error('В выбранной задаче нет корректного завершённого результата.')
 
 with st.sidebar:
     st.markdown('### ◉ Хаттама')
@@ -208,10 +232,8 @@ with st.sidebar:
         recovery = st.selectbox('Завершённые задачи для восстановления',options=[str(run) for run,_ in completed],
             format_func=lambda value: Path(value).name)
         if st.button('Восстановить результат',disabled=bool(st.session_state.get('job'))):
-            selected=next((pair for pair in completed if str(pair[0]) == recovery),None)
-            if selected and recover_run(*selected):
-                st.rerun()
-            st.error('В выбранной задаче нет корректного завершённого результата.')
+            st.session_state.restore_run = recovery
+            st.rerun()
         if st.button('Удалить выбранную завершённую задачу',disabled=bool(st.session_state.get('job'))):
             candidate=Path(recovery).resolve()
             if candidate.parent == DATA_DIR and len(candidate.name) == 32 and candidate.is_dir() and not candidate.is_symlink():
@@ -274,7 +296,7 @@ if not data['segments']:
     st.warning('Речь не обнаружена. Проверьте запись или импортируйте исправленный текст.')
     st.stop()
 for warning in data.get('warnings',[]):
-    st.info(warning)
+    st.text(warning)
 if st.session_state.get('audio_path'):
     st.audio(st.session_state.audio_path)
 
@@ -292,58 +314,74 @@ with st.expander('Имена говорящих',expanded=data['source']=='audio
 rows = [{'id':s['id'],'start':s['start'],'end':s['end'],'speaker':s['speaker'],'text':s['text']} for s in data['segments']]
 edited = st.data_editor(pd.DataFrame(rows,columns=['id','start','end','speaker','text']),hide_index=True,width='stretch',
     disabled=True if busy else ['id','start','end'],key=f'transcript-{doc_id}',
-    column_config={'id':None,'start':st.column_config.NumberColumn('Начало, сек',format='%.1f'),
+    column_config={'id':st.column_config.TextColumn('ID реплики'),
+        'start':st.column_config.NumberColumn('Начало, сек',format='%.1f'),
         'end':None,'speaker':st.column_config.SelectboxColumn('Говорящий',options=speakers,required=True),
         'text':st.column_config.TextColumn('Реплика',width='large',required=True)})
 segments = json.loads(edited.to_json(orient='records',force_ascii=False))
 current_hash = digest(segments,names,meeting_date)
 st.download_button('Скачать транскрипт TXT',transcript_text(segments,names),file_name='transcript.txt',mime='text/plain')
-if st.button('Сохранить транскрипт локально',disabled=busy):
-    save_review(title,meeting_date,data,segments,names,current_hash)
+save_transcript = st.button('Сохранить транскрипт локально',disabled=busy)
 if st.button('Сформировать поручения и саммари',type='primary',disabled=busy or not available['Поручения и саммари'] or not segments):
-    start_job('analysis',{'segments':segments,'names':names,'meeting_date':meeting_date,'hash':current_hash})
+    start_job('analysis',{'segments':segments,'names':names,'meeting_date':meeting_date,'hash':current_hash,
+                         'source':data.get('source'),'warnings':data.get('warnings',[]),
+                         'audio_path':local_audio_path(st.session_state.get('audio_path')),
+                         'original_transcript':(st.session_state.get('original') or {}).get('transcript')})
     st.rerun()
 
 if 'analysis' not in st.session_state:
+    if save_transcript:
+        save_review(title,meeting_date,data,segments,names,current_hash)
     st.stop()
 st.subheader('3 · Проверьте протокол')
 analysis = st.session_state.analysis
-stale = st.session_state.analysis_hash != current_hash
+stale = st.session_state.get('analysis_hash') != current_hash
 if stale:
-    st.warning('Реплики, имена или дата изменились после анализа. Сформируйте поручения заново перед экспортом.')
+    st.warning('Протокол не подтверждён для текущих реплик, имён и даты. Сформируйте поручения заново перед экспортом.')
 for warning in analysis.get('warnings',[]):
-    st.warning(warning)
+    st.text(warning)
 aid = st.session_state.analysis_id
 summary = st.text_area('Краткое содержание',value=analysis.get('summary',''),height=180,key=f'summary-{aid}',disabled=busy)
 task_cols = ['task','owner','due_text','due_date','review','status','quote','start','source_ids']
 table = pd.DataFrame(analysis.get('tasks',[]),columns=task_cols)
 tasks_edit = st.data_editor(table,hide_index=True,width='stretch',num_rows='dynamic',key=f'tasks-{aid}',
-    disabled=True if busy else ['quote','start','source_ids'],column_config={
+    disabled=True if busy else ['quote','start'],column_config={
         'task':st.column_config.TextColumn('Поручение',width='large',required=True),
         'owner':st.column_config.TextColumn('Ответственный'),
         'due_text':st.column_config.TextColumn('Срок из речи'),
         'due_date':st.column_config.TextColumn('Дата YYYY-MM-DD'),
         'review':st.column_config.TextColumn('Уточнить'),
         'status':st.column_config.SelectboxColumn('Статус',options=['На проверке','В работе','Выполнено']),
-        'quote':None,'start':None,'source_ids':None})
+        'quote':None,'start':None,
+        'source_ids':st.column_config.MultiselectColumn('Исходные реплики',
+            options=[s['id'] for s in segments],required=True)})
 tasks = json.loads(tasks_edit.to_json(orient='records',force_ascii=False))
 tasks = [t for t in tasks if t.get('task')]
+try:
+    final = validate_review({**analysis,'summary':summary,'tasks':tasks}, segments)
+except ValueError as error:
+    st.error(str(error))
+    st.stop()
+tasks = final['tasks']
+if save_transcript:
+    save_review(title,meeting_date,data,segments,names,
+                st.session_state.get('analysis_hash') if stale else current_hash,final)
 with st.expander('Проверить поручения по исходным цитатам'):
     for i,t in enumerate(tasks,1):
-        st.markdown(f"**{i}. {t['task']}**")
-        st.write(t.get('quote') or 'Добавлено вручную — укажите основание перед утверждением.')
+        st.text(f"{i}. {t['task']}")
+        st.text(t.get('quote') or 'Добавлено вручную — укажите основание перед утверждением.')
         if t.get('start') is not None and st.session_state.get('audio_path'):
             st.audio(st.session_state.audio_path,start_time=max(0,int(t['start'])-1))
 
-final = {**analysis,'summary':summary,'tasks':tasks}
 st.caption('Экспортируется черновик. Проверьте факты и сроки; изменения в таблице попадут в документ.')
 include = st.checkbox('Включить транскрипт в DOCX',value=True)
 if not stale:
     if st.button('Сохранить протокол и правки локально',disabled=busy):
         save_review(title,meeting_date,data,segments,names,current_hash,final)
-    docx = build_docx(title,meeting_date,final,segments,names,include)
+    docx = build_docx(title,meeting_date,final,segments,names,include,source=data.get('source'))
     a,b = st.columns(2)
     a.download_button('Скачать протокол DOCX',docx,file_name='meeting-protocol.docx',
         mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',type='primary')
-    b.download_button('Скачать поручения JSON',json.dumps({'title':title,'meeting_date':meeting_date,**final},ensure_ascii=False,indent=2),
+    b.download_button('Скачать поручения JSON',json.dumps({'title':title,'meeting_date':meeting_date,
+        'source':data.get('source'),**final},ensure_ascii=False,indent=2),
         file_name='meeting-tasks.json',mime='application/json')

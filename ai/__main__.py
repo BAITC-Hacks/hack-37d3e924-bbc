@@ -13,7 +13,7 @@ def main():
     args=parser.parse_args()
     os.umask(0o077)
     try:
-        result=run_pipeline(json.loads(args.input.read_text()))
+        result=run_pipeline(json.loads(args.input.read_text(encoding='utf-8')))
     except PipelineError as e:
         print(json.dumps({'code':e.code,'message':e.message},ensure_ascii=False))
         return 1

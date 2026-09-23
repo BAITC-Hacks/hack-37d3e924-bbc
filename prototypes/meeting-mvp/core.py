@@ -2,6 +2,7 @@
 import json
 import re
 from datetime import date, timedelta
+from copy import deepcopy
 from pathlib import Path
 
 def write_json(path, data):
@@ -175,6 +176,73 @@ def validate_analysis(raw, segments, names, meeting_date):
                       'status': 'На проверке'})
     summary = raw.get('summary', '')
     return {'summary': summary if isinstance(summary, str) else '', 'tasks': tasks, 'warnings': warnings}
+
+def validate_review(analysis, segments):
+    if not isinstance(analysis, dict):
+        raise ValueError('Протокол должен быть объектом с саммари и поручениями.')
+    if not isinstance(analysis.get('summary'), str):
+        raise ValueError('Краткое содержание должно быть строкой.')
+    raw_tasks = analysis.get('tasks')
+    if not isinstance(raw_tasks, list):
+        raise ValueError('Поручения должны быть списком.')
+    by_id = {s.get('id'): s for s in segments if isinstance(s, dict) and isinstance(s.get('id'), str)}
+    order = {segment_id: index for index, segment_id in enumerate(by_id)}
+    result = deepcopy(analysis)
+    result['summary'] = analysis['summary']
+    normalized_tasks = []
+    allowed_statuses = {'На проверке', 'В работе', 'Выполнено'}
+    for index, item in enumerate(raw_tasks, 1):
+        if not isinstance(item, dict):
+            raise ValueError(f'Поручение {index}: строка должна быть объектом.')
+        task_text = item.get('task')
+        if not isinstance(task_text, str) or not task_text.strip():
+            raise ValueError(f'Поручение {index}: текст поручения обязателен.')
+        ids = item.get('source_ids')
+        if not isinstance(ids, list) or not ids or not all(isinstance(x, str) for x in ids):
+            raise ValueError(f'Поручение {index}: укажите исходные реплики.')
+        if any(x not in by_id for x in ids):
+            raise ValueError(f'Поручение {index}: исходная реплика не найдена.')
+        ids = sorted(dict.fromkeys(ids), key=lambda x: order[x])
+        owner = item.get('owner')
+        due_text = item.get('due_text')
+        review = item.get('review')
+        due = item.get('due_date')
+        status = item.get('status')
+        if owner is None:
+            owner = ''
+        if due_text is None:
+            due_text = ''
+        if review is None:
+            review = ''
+        if due is None:
+            due = ''
+        if status is None:
+            status = 'На проверке'
+        if not isinstance(owner, str):
+            raise ValueError(f'Поручение {index}: ответственный должен быть строкой.')
+        if not isinstance(due_text, str):
+            raise ValueError(f'Поручение {index}: срок текстом должен быть строкой.')
+        if not isinstance(review, str):
+            raise ValueError(f'Поручение {index}: комментарий проверки должен быть строкой.')
+        if not isinstance(due, str):
+            raise ValueError(f'Поручение {index}: дата срока должна быть строкой.')
+        due = due.strip()
+        if due:
+            try:
+                valid_due = re.fullmatch(r'\d{4}-\d{2}-\d{2}', due) and date.fromisoformat(due).isoformat() == due
+            except ValueError:
+                valid_due = False
+            if not valid_due:
+                raise ValueError(f'Поручение {index}: дата срока должна быть в формате YYYY-MM-DD.')
+        if not isinstance(status, str) or status not in allowed_statuses:
+            raise ValueError(f'Поручение {index}: неизвестный статус.')
+        starts = [by_id[x].get('start') for x in ids if by_id[x].get('start') is not None]
+        normalized_tasks.append({'task': task_text.strip(), 'owner': owner.strip(), 'due_text': due_text.strip(),
+            'due_date': due, 'review': review.strip(), 'status': status,
+            'quote': '\n'.join(f"[{x}] {by_id[x].get('text','')}" for x in ids), 'source_ids': ids,
+            'start': min(starts) if starts else None})
+    result['tasks'] = normalized_tasks
+    return result
 
 def transcript_text(segments, names):
     return '\n'.join(f"[{s['id']} · {stamp(s['start'])}] {names.get(s['speaker'], s['speaker'])}: {s['text']}" for s in segments)

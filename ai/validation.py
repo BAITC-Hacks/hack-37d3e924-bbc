@@ -14,7 +14,7 @@ def require(condition):
 CONTRACTS = Path(__file__).resolve().parents[1] / 'contracts'
 
 def _schema(data, name):
-    schema = json.loads((CONTRACTS / f'{name}.schema.json').read_text())
+    schema = json.loads((CONTRACTS / f'{name}.schema.json').read_text(encoding='utf-8'))
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(data)
 
 def _participants(items):

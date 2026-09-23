@@ -16,7 +16,7 @@ def sha256(path):
     return h.hexdigest()
 
 def main():
-    manifest = json.loads((ROOT/'mac-models.lock.json').read_text())
+    manifest = json.loads((ROOT/'mac-models.lock.json').read_text(encoding='utf-8'))
     for item in manifest['files']:
         target = DEST/item['path']
         if target.is_file() and sha256(target)==item['sha256']:

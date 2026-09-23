@@ -7,6 +7,12 @@ import pytest
 from ai.audio import prepare_audio
 from ai.errors import PipelineError
 
+def test_evaluation_help_is_available_without_unix_resource():
+    result = subprocess.run([sys.executable, '-m', 'ai.evaluate', '--help'],
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    assert '--output' in result.stdout
+
 def test_worker_network_guard_is_process_scoped():
     code='''import sys,socket
 from ai.worker import deny_network
@@ -19,6 +25,11 @@ print("blocked")
 '''
     p=subprocess.run([sys.executable,'-c',code],capture_output=True,text=True)
     assert p.returncode==0 and p.stdout.strip()=='blocked'
+
+def test_worker_peak_rss_is_explicitly_unknown_without_resource(monkeypatch):
+    from ai import worker
+    monkeypatch.setattr(worker,'resource',None)
+    assert worker.peak_rss_bytes() is None
 
 def test_input_urls_never_download(tmp_path):
     with pytest.raises(PipelineError) as e:prepare_audio('https://example.com/audio.wav',tmp_path/'out.wav')

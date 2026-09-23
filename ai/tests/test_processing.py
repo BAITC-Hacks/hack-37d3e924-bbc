@@ -1,5 +1,7 @@
 import pytest
+from pathlib import Path
 from ai.audio import windows,owned_words,deduplicate_words,align
+from ai.asr import ctc_token_map
 from ai.extraction import resolve_date,checked_tasks,merge_tasks,segment_batches,parse_json
 from ai.errors import PipelineError
 
@@ -64,3 +66,14 @@ def test_bounded_text_batches_cover_all_segments():
 
 def test_malformed_json_fails():
     with pytest.raises(PipelineError):parse_json('not a result')
+
+def test_mixed_ctc_tokens_are_read_as_utf8(tmp_path, monkeypatch):
+    tokens = tmp_path/'tokens.lst'
+    tokens.write_text('Қ\t1\nә\t2\nж\t3\n',encoding='utf-8')
+    original = Path.read_text
+    def legacy_windows_read_text(self, *args, **kwargs):
+        if self.name == 'tokens.lst':
+            kwargs.setdefault('encoding', 'cp1251')
+        return original(self, *args, **kwargs)
+    monkeypatch.setattr(Path,'read_text',legacy_windows_read_text)
+    assert ctc_token_map(tmp_path) == {1:'Қ',2:'ә',3:'ж'}

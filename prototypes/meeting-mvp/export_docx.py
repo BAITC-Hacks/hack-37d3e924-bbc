@@ -4,8 +4,10 @@ from docx.shared import Cm, Pt, RGBColor
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from core import stamp
+from review import validate_review
 
 def build_docx(title, meeting_date, analysis, segments, names, include_transcript=True):
+    analysis = validate_review(analysis, segments)
     doc = Document()
     for style in doc.styles:
         for border in list(style.element.iter(qn('w:pBdr'))):

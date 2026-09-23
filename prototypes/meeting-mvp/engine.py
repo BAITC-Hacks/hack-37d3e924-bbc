@@ -1,5 +1,6 @@
 """Local inference workers. Each stage runs in a fresh process to release RAM."""
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +9,7 @@ import time
 
 from config import MODEL_DIR, DATA_DIR, offline_env
 from core import read_json, write_json, group_words, parse_model_json, validate_analysis
+from reconcile import reconcile_tasks
 
 os.environ.update(offline_env())
 os.umask(0o077)
@@ -172,12 +174,25 @@ def analyze(run):
         chunks.append(current)
     mx.set_cache_limit(128 * 1024 * 1024)
     model, tokenizer = load(str(MODEL_DIR/'llm'))
+    reconciliation_calls = 0
+    def generate(system, content):
+        nonlocal reconciliation_calls
+        reconciliation_calls += 1
+        progress(run, f'Сверяем повторы и уточнения · шаг {reconciliation_calls}',
+                 .96 + .03 * min(reconciliation_calls / 12, 1))
+        prompt = tokenizer.apply_chat_template([{'role': 'system', 'content': system},
+            {'role': 'user', 'content': content}], tokenize=False, add_generation_prompt=True)
+        answer = ''.join(response.text for response in stream_generate(model, tokenizer,
+            prompt=prompt, max_tokens=512, sampler=make_sampler(temp=0), prefill_step_size=256))
+        mx.clear_cache()
+        return answer
+
     results, summaries, warnings = [], [], []
     for i, chunk in enumerate(chunks):
         progress(run, f'Выделяем поручения · часть {i+1}/{len(chunks)}', .1+.8*i/max(len(chunks),1))
         transcript = '\n'.join(f"[{s['id']}] {names.get(s['speaker'],s['speaker'])}: {s['text']}" for s in chunk)
         prompt = tokenizer.apply_chat_template([{'role':'system','content':SYSTEM},
-            {'role':'user','content':'ТРАНСКРИПТ НАЧАЛО\n'+transcript+'\nТРАНСКРИПТ КОНЕЦ'}], tokenize=False, add_generation_prompt=True)
+            {'role':'user','content':'РАНЕЕ ВЫДЕЛЕННЫЕ ПОРУЧЕНИЯ (контекст, не извлекай их повторно без новых реплик):\n' + json.dumps([{'task': t['task'][:500], 'owner': t['owner'][:100]} for t in results[-8:]], ensure_ascii=False) + '\nЕсли новые реплики уточняют прежнее поручение, верни его с новым сроком и новыми source_ids.\nТРАНСКРИПТ НАЧАЛО\n'+transcript+'\nТРАНСКРИПТ КОНЕЦ'}], tokenize=False, add_generation_prompt=True)
         parts = []
         for response in stream_generate(model, tokenizer, prompt=prompt, max_tokens=2600,
                 sampler=make_sampler(temp=0), prefill_step_size=256):
@@ -196,9 +211,13 @@ def analyze(run):
             if not any(t['quote'] == task['quote'] and t['owner'] == task['owner'] and t['task'] == task['task'] for t in results):
                 results.append(task)
         mx.clear_cache()
+    progress(run, 'Сверяем повторы и уточнения между частями', .96)
+    results, reconciliation_warnings = reconcile_tasks(results, segments, names,
+        request.get('meeting_date'), generate)
+    warnings.extend(reconciliation_warnings)
     write_json(run/'analysis.json', {'summary':'\n\n'.join(summaries), 'tasks':results,
         'warnings':warnings, 'model':'Qwen3-4B-Instruct-2507-4bit',
-        'note':'Черновик. Проверьте факты, исполнителей, сроки и возможные повторы между частями.'})
+        'note':'Черновик после сверки частей. Проверьте факты, исполнителей и последние согласованные сроки.'})
 
 def orchestrate(run, kind):
     import fcntl

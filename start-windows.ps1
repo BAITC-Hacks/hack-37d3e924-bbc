@@ -11,10 +11,7 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 $python = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) {
-    $python = Join-Path $PSScriptRoot 'prototypes\meeting-mvp\.venv\Scripts\python.exe'
-}
-if (-not (Test-Path -LiteralPath $python)) {
-    throw 'Run: python scripts/manage.py setup --profile windows'
+    throw 'Run setup-windows.cmd first.'
 }
 if ($Device -eq 'auto') {
     $Device = (& $python -c "import torch; print('cuda' if torch.cuda.is_available() else 'cpu')").Trim()

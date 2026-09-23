@@ -1,7 +1,6 @@
 # Model provenance and third-party notices
 
-This distribution redistributes the exact files pinned by `ai/mac-models.lock.json`
-and `prototypes/meeting-mvp/models.lock.json`. Model bytes are unchanged.
+This distribution redistributes the exact files pinned by `ai/mac-models.lock.json`. Model bytes are unchanged.
 The large ASR and MLX weight files are split for Git transport and reassembled
 byte-for-byte. The release copy splits only the MLX weight file.
 No recordings, transcripts, training datasets, credentials or caches are included.

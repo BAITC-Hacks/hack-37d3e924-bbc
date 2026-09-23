@@ -20,8 +20,8 @@ Never edit another role's owned files unless the responsible person explicitly a
 Read before implementation:
 
 1. `ARCHITECTURE.md`
-2. `docs/API_CONTRACT.md`
-3. `docs/ML_CONTRACT.md`
+2. `contracts/API.md`
+3. `ARCHITECTURE.md`
 4. your role backlog
 
 Do not invent request fields, response fields, error shapes, database assumptions, or ML interfaces.
@@ -71,7 +71,7 @@ The team lead's current product instructions supersede the old three-role templa
 - Participant 1 owns ai/ and AI-specific dependencies/instructions. The interface is ai.pipeline.run_pipeline(input_data, on_progress=None). No separate AI backend.
 - Participant 2 owns backend/ AND frontend/, SQLite storage, the separate worker, review persistence and DOCX export.
 - The team lead owns contracts/, shared launch configuration, README, acceptance and integration. Do not delegate both implementation lanes to the team lead.
-- contracts/ is the schema source of truth; docs/API_CONTRACT.md and docs/ML_CONTRACT.md describe the proposed integration. Use backlog/AI.md, backlog/APP.md and backlog/LEAD.md.
+- contracts/ is the schema source of truth; contracts/API.md and ARCHITECTURE.md describe the proposed integration. Current run and acceptance instructions are in README.md; historical backlogs were consolidated.
 - Old ml/ ownership, PostgreSQL defaults and classifier/predict contracts are obsolete for this case. Legacy role skills requiring those assumptions must not be applied unchanged.
 - Audio and meeting text must never go to external cloud APIs. No automatic cloud fallback. Prepare local weights/dependencies, then verify offline processing.
 - Fixtures must be explicitly marked synthetic. Never report a fixture run as model quality evidence.

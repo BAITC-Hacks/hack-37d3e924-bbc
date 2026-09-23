@@ -23,3 +23,8 @@ ml/artifacts/*.tmp
 /models/**/*.assembling
 /models/.github-model-cache/
 /models/.meeting-models-verified.json
+
+# Local coding tools are not part of the application.
+/.codex/
+/.agents/
+/.omx/

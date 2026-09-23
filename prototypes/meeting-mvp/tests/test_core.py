@@ -1,7 +1,10 @@
 import sys
+import tempfile
+import json
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from core import due_date, speaker_for, validate_analysis, text_segments, parse_model_json, group_words
+from engine import progress
 
 def test_dates_do_not_invent_anchor_or_year():
     assert due_date('до пятницы',None) is None
@@ -59,3 +62,12 @@ def test_json_and_grouping():
     words=[{'text':'да','start':0,'end':1},{'text':'нет','start':2,'end':3}]
     turns=[{'start':0,'end':1,'speaker':'A'},{'start':2,'end':3,'speaker':'B'}]
     assert len(group_words(words,turns))==2
+
+def test_progress_preserves_durable_run_identity():
+    with tempfile.TemporaryDirectory() as directory:
+        path=Path(directory)/'status.json'
+        path.write_text(json.dumps({'schema_version':1,'run_id':'a'*32,'kind':'audio','state':'running'}))
+        progress(directory,'Распознаём',.5)
+        status=json.loads(path.read_text())
+        assert status['run_id']=='a'*32 and status['kind']=='audio'
+        assert status['progress']==.5

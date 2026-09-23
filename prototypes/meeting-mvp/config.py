@@ -1,9 +1,11 @@
 from pathlib import Path
 import os
 from importlib.util import find_spec
+import json
+import hashlib
 
 ROOT = Path(__file__).resolve().parent
-MODEL_DIR = Path(os.environ.get('MEETING_MODEL_DIR', ROOT / 'models')).resolve()
+MODEL_DIR = Path(os.environ.get('MEETING_MODEL_DIR', ROOT / 'models')).expanduser().resolve()
 DATA_DIR = Path(os.environ.get('MEETING_DATA_DIR', ROOT / '.local')).resolve()
 
 def offline_env():
@@ -13,11 +15,22 @@ def offline_env():
             'MEETING_MODEL_DIR': str(MODEL_DIR)}
 
 def model_status():
-    return {
-        'Распознавание речи': all((MODEL_DIR / p).is_file() for p in ['asr/model.pt', 'asr/tokens.lst']),
-        'Разделение говорящих': all((MODEL_DIR / p).is_file() for p in ['diarization/segmentation.onnx', 'diarization/embedding.onnx']),
-        'Поручения и саммари': find_spec('mlx_lm') is not None and all((MODEL_DIR / p).is_file() for p in ['llm/model.safetensors', 'llm/config.json', 'llm/tokenizer.json']),
-    }
+    try:
+        manifest_path = ROOT / 'models.lock.json'
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        receipt = json.loads((MODEL_DIR / '.meeting-models-verified.json').read_text(encoding='utf-8'))
+        if receipt.get('schema_version') != 1 or receipt.get('manifest') != digest:
+            raise ValueError('stale receipt')
+        paths = {item['path']: item for item in manifest['files']}
+        verified = {item['path']: item for item in receipt.get('files', [])}
+        def group(prefix):
+            items = [item for path, item in paths.items() if path.startswith(prefix)]
+            return bool(items) and all(verified.get(item['path']) == {'path': item['path'], 'bytes': item['bytes'], 'sha256': item['sha256']} and (MODEL_DIR / item['path']).is_file() and (MODEL_DIR / item['path']).stat().st_size == item['bytes'] for item in items)
+        return {'Распознавание речи': group('asr/'), 'Разделение говорящих': group('diarization/'),
+                'Поручения и саммари': group('llm/') and find_spec('mlx_lm') is not None}
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        return {'Распознавание речи': False, 'Разделение говорящих': False, 'Поручения и саммари': False}
 
 
 def runtime_notice():

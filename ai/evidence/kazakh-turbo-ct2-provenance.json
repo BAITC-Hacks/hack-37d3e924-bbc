@@ -1,0 +1,35 @@
+{
+  "repo": "shyngys879/kazakh-whisper-large-v3-turbo",
+  "revision": "dafae810c95496f66184605824be5a0a971d3c09",
+  "license": "Apache-2.0",
+  "kind": "whisper",
+  "converted": true,
+  "quantization": "int8",
+  "files": [
+    {
+      "path": "config.json",
+      "sha256": "c805eff43fc2a1d00d5cfa315e4b2230895f34994257c185959808a116e7c4f0",
+      "bytes": 1405
+    },
+    {
+      "path": "model.bin",
+      "sha256": "e25e148034d904fe85befdf753e682744e5eb95cefc545388d706d2c3315e51b",
+      "bytes": 814054531
+    },
+    {
+      "path": "preprocessor_config.json",
+      "sha256": "02051956d42fbab481cba9b17d28c2019c5e15cefde01699a0253e75a130d648",
+      "bytes": 316
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "d8df16b44c78544bbeb2418fe491281fe0354132d445caddd3f37f20e9c776b6",
+      "bytes": 3931381
+    },
+    {
+      "path": "vocabulary.json",
+      "sha256": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1",
+      "bytes": 1068114
+    }
+  ]
+}

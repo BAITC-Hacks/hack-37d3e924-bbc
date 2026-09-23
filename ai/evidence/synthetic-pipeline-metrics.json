@@ -1,0 +1,48 @@
+{
+  "duration_seconds": 40.452375,
+  "wall_seconds": 30.834,
+  "stages": [
+    {
+      "stage": "preparing_audio",
+      "wall_seconds": 0.27,
+      "peak_rss_bytes": 37060608,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "transcribing",
+      "wall_seconds": 6.016,
+      "peak_rss_bytes": 1638907904,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "diarizing",
+      "wall_seconds": 5.305,
+      "peak_rss_bytes": 361431040,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "extracting_tasks",
+      "wall_seconds": 17.929,
+      "peak_rss_bytes": 923992064,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": 2797898384,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    }
+  ],
+  "profile": {
+    "asr": "mixed_ctc",
+    "diarizer": "sherpa",
+    "llm": "mlx",
+    "device": "cpu",
+    "requested_compute_type": "float16",
+    "requested_transformers_quantization": "none",
+    "compute_type": "original CTC checkpoint; option applies only to Whisper",
+    "quantization": "MLX checkpoint 4-bit; Transformers option not applied"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "meeting_id": "demo-mixed-001",
+  "meeting_datetime": "2026-09-23T10:00:00+05:00",
+  "timezone": "Asia/Qyzylorda",
+  "participants": [
+    {
+      "id": "p1",
+      "name": "Марсель",
+      "speaker_ids": []
+    },
+    {
+      "id": "p2",
+      "name": "Айжан",
+      "speaker_ids": []
+    }
+  ],
+  "segments": [
+    {
+      "id": "s1",
+      "speaker_id": "SPEAKER_00",
+      "start": 0,
+      "end": 4,
+      "text": "Айжан, подготовь отчёт к завтрашнему дню."
+    },
+    {
+      "id": "s2",
+      "speaker_id": "SPEAKER_01",
+      "start": 4.5,
+      "end": 8,
+      "text": "Жақсы. Марсель, кестені жаңартшы. Мерзімі әзірге белгісіз."
+    },
+    {
+      "id": "s3",
+      "speaker_id": "SPEAKER_00",
+      "start": 8.5,
+      "end": 12,
+      "text": "В прошлом месяце мы уже обсуждали бюджет. Это просто справка."
+    },
+    {
+      "id": "s4",
+      "speaker_id": "SPEAKER_01",
+      "start": 12.5,
+      "end": 16,
+      "text": "Нужно проверить цифры, ответственного пока не назначили."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "text": "Подготовить отчёт",
+      "assignee_id": "p2",
+      "due_date": "2026-09-24",
+      "source_segment_ids": [
+        "s1"
+      ],
+      "needs_review": false
+    },
+    {
+      "id": "t2",
+      "text": "Кестені жаңарту",
+      "assignee_id": "p1",
+      "due_date": null,
+      "source_segment_ids": [
+        "s2"
+      ],
+      "needs_review": true
+    },
+    {
+      "id": "t3",
+      "text": "Проверить цифры",
+      "assignee_id": null,
+      "due_date": null,
+      "source_segment_ids": [
+        "s4"
+      ],
+      "needs_review": true
+    }
+  ],
+  "summary": "Айжан поручено подготовить отчёт к 24 сентября. Марсель должен обновить таблицу; срок не указан. Для проверки цифр ответственный и срок не определены.",
+  "warnings": [
+    "TEST_FIXTURE: синтетический пример, аудио и модели не запускались.",
+    "Говорящие не сопоставлены с именами; требуется ручная проверка."
+  ]
+}

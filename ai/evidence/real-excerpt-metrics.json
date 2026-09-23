@@ -1,0 +1,58 @@
+{
+  "duration_seconds": 45.0,
+  "wall_seconds": 62.371,
+  "stages": [
+    {
+      "stage": "preparing_audio",
+      "wall_seconds": 0.131,
+      "peak_rss_bytes": 36945920,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "transcribing",
+      "wall_seconds": 9.267,
+      "peak_rss_bytes": 1114062848,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "diarizing",
+      "wall_seconds": 15.637,
+      "peak_rss_bytes": 375717888,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": null,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    },
+    {
+      "stage": "extracting_tasks",
+      "wall_seconds": 33.779,
+      "peak_rss_bytes": 817905664,
+      "torch_peak_cuda_allocated_bytes": null,
+      "mlx_peak_allocated_bytes": 2797898588,
+      "sampled_process_gpu_peak_mib": null,
+      "note": "RSS includes stage process; Torch counter excludes CTranslate2/ONNX allocations."
+    }
+  ],
+  "profile": {
+    "asr": "mixed_ctc",
+    "diarizer": "sherpa",
+    "llm": "mlx",
+    "device": "cpu",
+    "requested_compute_type": "int8",
+    "requested_transformers_quantization": "none",
+    "compute_type": "original CTC checkpoint; option applies only to Whisper",
+    "quantization": "MLX checkpoint 4-bit; Transformers option not applied"
+  },
+  "result_counts": {
+    "segments": 6,
+    "speaker_tracks": 2,
+    "tasks": 0
+  },
+  "note": "45-second local excerpt of provided audio; content intentionally excluded; test meeting date is not the actual recording date."
+}

@@ -86,12 +86,51 @@ def start_job(kind, request, upload=None):
         request['audio_name'] = 'input'+suffix
         (run/request['audio_name']).write_bytes(upload.getbuffer())
     write_json(run/'request.json',request)
-    write_json(run/'status.json',{'state':'running','label':'Запускаем обработку','progress':0})
+    write_json(run/'status.json',{'schema_version':1,'run_id':run.name,'kind':kind,'state':'running','label':'Запускаем обработку','progress':0,
+                                  'created_at':datetime.now().isoformat(timespec='seconds')})
     with (run/'worker.log').open('w') as log:
         proc = subprocess.Popen([sys.executable,str(ROOT/'engine.py'),kind,str(run)],
             stdout=log,stderr=log,env=offline_env(),**worker_popen_kwargs())
     st.session_state.job = {'run':str(run),'kind':kind,'proc':proc,'hash':request.get('hash')}
     st.session_state.setdefault('runs',[]).append(str(run))
+
+def managed_runs():
+    result=[]
+    for run in DATA_DIR.iterdir() if DATA_DIR.exists() else []:
+        if not run.is_dir() or run.is_symlink() or len(run.name) != 32:
+            continue
+        try:
+            status=read_json(run/'status.json')
+            if status.get('schema_version') == 1 and status.get('run_id') == run.name:
+                result.append((run,status))
+        except (OSError, ValueError, KeyError):
+            continue
+    return sorted(result,key=lambda item:item[0].stat().st_mtime,reverse=True)
+
+def recover_run(run, status):
+    """Restore only a complete, validated artifact; incomplete work is never resumed."""
+    if status.get('state') != 'done':
+        return False
+    try:
+        if status.get('kind') == 'audio' and (run/'transcript.json').is_file() and (run/'audio.wav').is_file():
+            new_transcript(read_json(run/'transcript.json'),run/'audio.wav')
+        elif status.get('kind') == 'analysis' and (run/'analysis.json').is_file():
+            request = read_json(run/'request.json')
+            if not isinstance(request.get('segments'), list):
+                return False
+            new_transcript({'segments':request['segments'],'source':'recovered_analysis','duration':None,'warnings':[]})
+            st.session_state.meeting_date = date.fromisoformat(request['meeting_date']) if request.get('meeting_date') else None
+            for speaker, name in request.get('names', {}).items():
+                st.session_state[f'name-{st.session_state.doc_id}-{speaker}'] = name
+            st.session_state.analysis=read_json(run/'analysis.json')
+            st.session_state.analysis_hash=request.get('hash')
+            st.session_state.analysis_id=uuid.uuid4().hex[:8]
+        else:
+            return False
+        st.session_state.setdefault('runs',[]).append(str(run))
+        return True
+    except (OSError, ValueError, KeyError):
+        return False
 
 @st.fragment(run_every=2)
 def job_monitor():
@@ -158,6 +197,27 @@ with st.sidebar:
         if st.button('Открыть сохранённое',disabled=bool(st.session_state.get('job'))):
             st.session_state.restore_file = saved_choice
             st.rerun()
+        if st.button('Удалить выбранное сохранение',disabled=bool(st.session_state.get('job'))):
+            candidate=Path(saved_choice).resolve()
+            if candidate.parent == DATA_DIR and candidate.name.startswith('review-') and candidate.suffix == '.json' and not candidate.is_symlink():
+                candidate.unlink(missing_ok=True)
+                st.success('Сохранение удалено.')
+                st.rerun()
+    completed = [(run,status) for run,status in managed_runs() if status.get('state') == 'done']
+    if completed:
+        recovery = st.selectbox('Завершённые задачи для восстановления',options=[str(run) for run,_ in completed],
+            format_func=lambda value: Path(value).name)
+        if st.button('Восстановить результат',disabled=bool(st.session_state.get('job'))):
+            selected=next((pair for pair in completed if str(pair[0]) == recovery),None)
+            if selected and recover_run(*selected):
+                st.rerun()
+            st.error('В выбранной задаче нет корректного завершённого результата.')
+        if st.button('Удалить выбранную завершённую задачу',disabled=bool(st.session_state.get('job'))):
+            candidate=Path(recovery).resolve()
+            if candidate.parent == DATA_DIR and len(candidate.name) == 32 and candidate.is_dir() and not candidate.is_symlink():
+                shutil.rmtree(candidate)
+                st.success('Локальные файлы задачи удалены.')
+                st.rerun()
     if st.button('Удалить данные текущей сессии',disabled=bool(st.session_state.get('job'))):
         for run in st.session_state.get('runs',[]):
             candidate=Path(run).resolve()

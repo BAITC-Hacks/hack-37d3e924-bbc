@@ -1,0 +1,4 @@
+jsonschema==4.26.0
+soundfile==0.14.0
+imageio-ffmpeg==0.6.0
+rfc3339-validator==0.1.4

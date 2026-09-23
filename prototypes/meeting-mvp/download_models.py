@@ -1,4 +1,5 @@
 """Only setup uses the network. No meeting data is read or transmitted here."""
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -16,8 +17,14 @@ def sha256(path):
     return h.hexdigest()
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--component', choices=['asr', 'diarization', 'llm'], action='append',
+                        help='Download only this original component; may be repeated. Default: all.')
+    args = parser.parse_args()
     manifest = json.loads((ROOT/'models.lock.json').read_text())
     for item in manifest['files']:
+        if args.component and item['path'].split('/')[0] not in args.component:
+            continue
         target = DEST/item['path']
         if target.is_file() and sha256(target)==item['sha256']:
             print('Проверено:',item['path'],flush=True)
@@ -46,7 +53,7 @@ def main():
         if sha256(temp)!=item['sha256']:
             raise RuntimeError('Контрольная сумма не совпала: '+item['path'])
         temp.replace(target)
-    print('Все модели загружены и проверены. Можно отключить сеть.')
+    print('Выбранные модели загружены и проверены. Можно отключить сеть.')
 
 if __name__=='__main__':
     main()

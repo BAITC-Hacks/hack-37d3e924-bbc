@@ -95,7 +95,7 @@ def transcribe(run):
     torch.set_num_threads(4)
     model = torch.jit.load(str(MODEL_DIR/'asr/model.pt'), map_location='cpu').eval()
     tokens = {}
-    for line in (MODEL_DIR/'asr/tokens.lst').read_text().splitlines():
+    for line in (MODEL_DIR/'asr/tokens.lst').read_text(encoding='utf-8').splitlines():
         if line.strip():
             symbol, index = line.rstrip('\n').split('\t')
             tokens[int(index)] = symbol
@@ -146,6 +146,10 @@ source_ids — точные номера ВСЕХ нужных реплик: д�
 Повтор одного поручения в итоговом перечислении не создаёт нового поручения. Не добавляй пояснений вне JSON.'''
 
 def analyze(run):
+    from config import runtime_notice
+    notice = runtime_notice()
+    if notice:
+        raise ValueError(notice)
     import mlx.core as mx
     from mlx_lm import load, stream_generate
     from mlx_lm.sample_utils import make_sampler
@@ -195,15 +199,12 @@ def analyze(run):
         'note':'Черновик. Проверьте факты, исполнителей, сроки и возможные повторы между частями.'})
 
 def orchestrate(run, kind):
-    import fcntl
+    from inference_lock import acquire_inference_lock
     DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-    lock = (DATA_DIR/'inference.lock').open('w')
+    lock = None
     started = time.monotonic()
     try:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            raise RuntimeError('Уже обрабатывается другая запись. Дождитесь её завершения.')
+        lock = acquire_inference_lock(DATA_DIR/'inference.lock')
         progress(run, 'Подготавливаем запись' if kind=='audio' else 'Загружаем языковую модель', .01)
         if kind == 'audio':
             req = read_json(run/'request.json')
@@ -221,7 +222,8 @@ def orchestrate(run, kind):
             'hint':'Транскрипт и промежуточные результаты сохранены. Подробности в worker.log.'})
         raise
     finally:
-        lock.close()
+        if lock is not None:
+            lock.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

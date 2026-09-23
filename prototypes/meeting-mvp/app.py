@@ -3,7 +3,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import signal
 import subprocess
 import sys
 import uuid
@@ -11,9 +10,10 @@ from datetime import date, datetime
 
 import pandas as pd
 import streamlit as st
-from config import ROOT, DATA_DIR, model_status, offline_env
+from config import ROOT, DATA_DIR, model_status, offline_env, runtime_notice
 from core import read_json, write_json, stamp, text_segments, transcript_text
 from export_docx import build_docx
+from process_utils import stop_process_tree, worker_popen_kwargs
 
 st.set_page_config(page_title='Хаттама · Протокол совещания', page_icon='◉', layout='wide')
 DATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -89,7 +89,7 @@ def start_job(kind, request, upload=None):
     write_json(run/'status.json',{'state':'running','label':'Запускаем обработку','progress':0})
     with (run/'worker.log').open('w') as log:
         proc = subprocess.Popen([sys.executable,str(ROOT/'engine.py'),kind,str(run)],
-            stdout=log,stderr=log,env=offline_env(),start_new_session=True)
+            stdout=log,stderr=log,env=offline_env(),**worker_popen_kwargs())
     st.session_state.job = {'run':str(run),'kind':kind,'proc':proc,'hash':request.get('hash')}
     st.session_state.setdefault('runs',[]).append(str(run))
 
@@ -106,11 +106,7 @@ def job_monitor():
         st.progress(float(status.get('progress',0)),text=status['label'])
         st.caption('Можно оставить эту страницу открытой. Обработка выполняется на вашем компьютере.')
         if st.button('Остановить обработку'):
-            try:
-                os.killpg(job['proc'].pid,signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            job['proc'].wait(timeout=10)
+            stop_process_tree(job['proc'])
             st.session_state.pop('job')
             st.rerun()
     elif status['state']=='done':
@@ -144,7 +140,9 @@ with st.sidebar:
     st.markdown('**Готовность моделей**')
     available = model_status()
     for name, ready in available.items():
-        st.caption(('● ' if ready else '○ ')+name+(' · готово' if ready else ' · требуется загрузка'))
+        st.caption(('● ' if ready else '○ ')+name+(' · готово' if ready else ' · недоступно'))
+    if runtime_notice():
+        st.warning(runtime_notice())
     st.caption('Данные хранятся локально. Обработка не обращается к облачным API.')
     st.caption('Для показа третьим лицам используйте обезличенные записи. Синтетический текст доступен ниже.')
     saved_options = {}

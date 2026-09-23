@@ -3,7 +3,8 @@ from docx import Document
 from docx.shared import Cm, Pt, RGBColor
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from core import stamp, validate_review
+from core import stamp
+from review import validate_review
 
 def build_docx(title, meeting_date, analysis, segments, names, include_transcript=True, source=None):
     analysis = validate_review(analysis, segments)

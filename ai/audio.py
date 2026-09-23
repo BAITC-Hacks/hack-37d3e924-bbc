@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from .errors import PipelineError
 
-def prepare_audio(source, destination, max_seconds=3600):
+def prepare_audio(source, destination, max_seconds=3600, allowed_formats=None):
     import imageio_ffmpeg
     import soundfile as sf
     path = Path(source)
@@ -12,7 +12,9 @@ def prepare_audio(source, destination, max_seconds=3600):
         raise PipelineError('INVALID_AUDIO', 'Аудиофайл недоступен worker-процессу.')
     # Reject URLs and network protocols, including those inside input playlists.
     proc = subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), '-v', 'error', '-nostdin', '-y',
-        '-protocol_whitelist', 'file,pipe', '-i', str(path.resolve()), '-vn', '-t', str(max_seconds+1),
+        '-protocol_whitelist', 'file,pipe',
+        *(['-format_whitelist', ','.join(allowed_formats)] if allowed_formats else []),
+        '-i', str(path.resolve()), '-vn', '-t', str(max_seconds+1),
         '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', str(destination)], capture_output=True, timeout=180)
     if proc.returncode:
         raise PipelineError('INVALID_AUDIO', 'Не удалось декодировать аудио.')

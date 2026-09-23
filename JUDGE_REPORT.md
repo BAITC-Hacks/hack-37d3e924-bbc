@@ -1,43 +1,48 @@
-# Judge Readiness Report
+# Проверка интеграции 23 сентября 2026
 
-Date/time:
-Commit:
-Environment:
+Проверена ветка `fix/meeting-integration` после включения `origin/main` с Windows-поддержкой прототипа (`07df2a9`). Баллы не оценивались. Синтетический пример приложения и запуск настоящих моделей различаются ниже.
 
-## Functional completeness
+| Критерий | Статус | Доказательство |
+|---|---|---|
+| Связь UI → API → очередь → AI → сохранение → DOCX | PASS | Новый React-интерфейс использует FastAPI, SQLite и отдельный `backend.worker`. HTTP-прогон в real на локальном Mac завершён; параметры ниже. |
+| Правки не стирают original | PASS | Backend-тесты original/revision/restart, браузерная правка и повторное открытие, HTTP GET original до и после правки. |
+| Проверка ручных задач | PASS | Frontend/backend/prototype тесты: пустые и неизвестные источники, неправильная дата, недопустимый assignee, двойное назначение голоса, несогласованная revision. |
+| Исправления старого прототипа | PASS | Сохранение транскрипта сохраняет анализ, оригинал и историю. Headless Streamlit тест выбора источников, сохранения и восстановления. |
+| Сверка результатов длинных записей | PARTIAL | Регрессии подтверждают ограничение сравнений, объединение источников и консервативную обработку позднего срока. Точность семантических решений локальной модели на длительных RU/KZ записях не измерена. |
+| Запуск и зависимости | PASS | `scripts/manage.py setup --profile fixture` выполнен, npm ci/build успешны, pip check без конфликтов. Совместная установка backend + тесты + mac AI lock разрешается pip dry-run. mac run с существующими локальными моделями успешно запущен и перезапущен. |
+| Надёжность очереди и остановки | PASS | Атомарный claim, второй worker, recovery, retry, ошибка удаления, неверный JSON/аудио, SIGTERM активного этапа без остановки соседнего процесса: backend tests. Управляемый запуск завершает API и worker вместе. |
+| Экспорт | PASS | В real прогоне сохранена версия 2, DOCX содержит её саммари. Итоговый одностраничный DOCX отрендерен встроенным LibreOffice, PNG просмотрен: текст и казахские символы читаемы, обрезания нет. |
+| Качество распознавания на настоящих совещаниях | PARTIAL | Данный интеграционный прогон использует синтетическую озвученную RU/KZ запись. Он доказывает выполнение локальных моделей и связки, а не WER/DER или полноту поручений на реальной выборке. Предыдущие эксперименты отдельно в ai/EVIDENCE.md. |
+| GPU и закрытый контур | PARTIAL | Здесь проверен Apple Silicon. CUDA-профиль и запрет внешнего трафика на уровне ОС не проверялись. Offline-настройки и тест запрета сокетов AI проходят. |
+| README | PASS | Указаны зависимости, команды mac/cuda/fixture, пути моделей, хранение, проверки, режимы и ограничения. Удалены неработающие ссылки Makefile на отсутствующий Docker Compose. |
 
-Status: `PASS | PARTIAL | FAIL`
+## Проверки кода
 
-Evidence:
+```text
+python scripts/manage.py verify --python <подготовленное Python 3.12 окружение>
+backend/tests:                    18 passed
+ai/tests:                         68 passed
+prototypes/meeting-mvp/tests:      51 passed
+frontend domain tests:             5 passed
+Всего:                           142 passed
+TypeScript + Vite production build: PASS
+Python compileall:                  PASS
+pip check:                          PASS
+npm audit:                          0 vulnerabilities
+```
 
-## Technical implementation
+Windows-ветка прототипа сохранена при merge. Её переносимые тесты прошли на Mac; новый запуск Windows в этой проверке не выполнялся. Старое предупреждение Starlette/AnyIO о deprecated test alias не влияет на результаты.
 
-Status: `PASS | PARTIAL | FAIL`
+## Настоящий локальный прогон
 
-Evidence:
+- Исходный файл: `mixed-two-speakers.wav`, синтетические RU/KZ голоса из генератора AI-модуля; не пользовательское совещание.
+- Профиль: mixed CTC CPU, Sherpa ONNX, MLX Qwen; готовые локальные веса из папки участника.
+- Через POST создано задание `mode=real`, worker вызвал настоящий `ai.pipeline.run_pipeline`.
+- От принятого задания до результата, правки и DOCX: **41,55 с**; 4 сегмента, 2 speaker_id, 3 поручения. Это единичный smoke-замер, не SLA или оценка точности.
+- PUT review → revision 2 → повторный GET: правка сохранена; GET original: исходный результат не изменился.
+- После остановки и повторного запуска API/worker: revision 2, original и DOCX сохранились.
+- Отдельно в браузере проверен fixture upload → результат → правки → сохранение → перезагрузка страницы → та же сохранённая версия; fixture явно помечен в UI.
 
-## README and documentation
+## Незакрытые проверки
 
-Status: `PASS | PARTIAL | FAIL`
-
-Evidence:
-
-## Reproducibility
-
-Status: `PASS | PARTIAL | FAIL`
-
-Evidence:
-
-## Reliability and security
-
-Status: `PASS | PARTIAL | FAIL`
-
-Evidence:
-
-## Required fixes
-
-| Priority | Owner | Failure | Exact repair | Verification |
-|---|---|---|---|---|
-
-Do not estimate a final score.
-
+P1-задачи добавлены в backlog/AI.md и backlog/LEAD.md: эталонные длинные многоязычные записи, точность поручений/сроков, запуск CUDA и проверка сетевой изоляции. До этого нельзя заявлять полную промышленную готовность или идеальное качество моделей.

@@ -53,7 +53,7 @@ def test_unknown_deadline_not_model_invention():
     assert resolve_date('к 25 сентября',DT,'Asia/Almaty') is None
 
 def test_task_dedup_keeps_distinct_actions():
-    tasks=[{'id':'pending','text':t,'assignee_id':None,'due_date':None,'source_segment_ids':['s1'],'needs_review':True}
+    tasks=[{'id':'pending','text':t,'assignee_id':'p1','due_date':None,'source_segment_ids':['s1'],'needs_review':True}
             for t in ['Подготовить отчёт','Подготовить отчёт','Проверить бюджет']]
     merged=merge_tasks(tasks)
     assert len(merged)==2 and [t['id'] for t in merged]==['t1','t2']

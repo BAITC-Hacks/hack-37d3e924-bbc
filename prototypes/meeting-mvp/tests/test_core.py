@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from core import due_date, speaker_for, validate_analysis, text_segments, parse_model_json, group_words
-from engine import progress
 
 def test_dates_do_not_invent_anchor_or_year():
     assert due_date('до пятницы',None) is None
@@ -64,6 +63,7 @@ def test_json_and_grouping():
     assert len(group_words(words,turns))==2
 
 def test_progress_preserves_durable_run_identity():
+    from engine import progress
     with tempfile.TemporaryDirectory() as directory:
         path=Path(directory)/'status.json'
         path.write_text(json.dumps({'schema_version':1,'run_id':'a'*32,'kind':'audio','state':'running'}))

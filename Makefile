@@ -1,15 +1,24 @@
-PYTHON ?= python
-.PHONY: help run up verify
+.PHONY: setup run up verify prototype help
+PYTHON ?= python3.12
+PROFILE ?= mac
+MODELS ?=
 
 help:
-	@echo "make run: local Streamlit prototype; make verify: AI and prototype tests"
-	@echo "Set PYTHON to the prepared virtual environment executable. See README.md."
+	@echo 'make setup PROFILE=mac|cuda|fixture — зависимости и интерфейс'
+	@echo 'make up PROFILE=mac MODELS=/path/to/models — приложение и worker; Ctrl+C останавливает оба'
+	@echo 'make up PROFILE=fixture — явно синтетический сценарий без моделей'
+	@echo 'make verify — тесты и сборка; make prototype — прежний Streamlit'
 
-run:
-	$(PYTHON) -m streamlit run prototypes/meeting-mvp/app.py --server.address 127.0.0.1 --server.port 8501 --browser.gatherUsageStats false
+run: up
 
-up: run
+setup:
+	$(PYTHON) scripts/manage.py setup --profile $(PROFILE)
+
+up:
+	$(PYTHON) scripts/manage.py run --profile $(PROFILE) $(if $(MODELS),--models "$(MODELS)",)
 
 verify:
-	$(PYTHON) -m pytest --import-mode=importlib ai/tests prototypes/meeting-mvp/tests -q
+	$(PYTHON) scripts/manage.py verify
 
+prototype:
+	$(PYTHON) -m streamlit run prototypes/meeting-mvp/app.py --server.address 127.0.0.1 --server.port 8501 --browser.gatherUsageStats false

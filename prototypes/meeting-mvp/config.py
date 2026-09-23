@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 ROOT = Path(__file__).resolve().parent
-MODEL_DIR = Path(os.environ.get('MEETING_MODEL_DIR', ROOT / 'models')).resolve()
+MODEL_DIR = Path(os.environ.get('MEETING_MODEL_DIR', ROOT / 'models')).expanduser().resolve()
 DATA_DIR = Path(os.environ.get('MEETING_DATA_DIR', ROOT / '.local')).resolve()
 
 def offline_env():

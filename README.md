@@ -20,7 +20,7 @@ brev shell testhackalem --host
 
 ```bash
 cp .env.example .env
-# Подготовьте models/ по разделу ниже.
+python3 scripts/prepare_repo_models.py
 docker compose up -d --build
 docker compose logs -f app
 ```
@@ -43,7 +43,16 @@ brev port-forward testhackalem --host --port 8000:8000
 
 ## Модели
 
-Нужен исходный проверенный комплект, общий для Brev, Windows и Mac:
+Веса уже находятся в `models/` репозитория; Git LFS и отдельный ключ NVIDIA не нужны. После `git clone` / `git pull` соберите крупные файлы из частей и проверьте SHA-256 без сети:
+
+```bash
+python3 scripts/prepare_repo_models.py
+# На Windows: py scripts/prepare_repo_models.py
+```
+
+Для частей, истории Git и собранных весов оставьте не менее 12 ГБ свободного места, плюс место для Docker и записей. Профили `mac`, `windows` и `brev` при прямом запуске собирают корневой `models/` автоматически. Docker использует готовую папку read-only, поэтому сборка выполняется на хосте **до** старта контейнера.
+
+После сборки общий комплект содержит:
 
 ```text
 models/
@@ -56,7 +65,7 @@ models/
 
 Уже скачанный комплект можно скопировать на сервер и указать `MEETING_MODEL_DIR=/путь/на/сервере/models` в `.env`. Путь с ноутбука не становится доступным на Brev автоматически.
 
-Для загрузки опубликованного комплекта нужен Python и GitHub CLI с доступом к репозиторию:
+Резервный вариант — скачать тот же комплект из Releases. Только для этого способа нужен GitHub CLI с доступом к репозиторию:
 
 ```bash
 gh auth login
@@ -71,7 +80,7 @@ python3 scripts/download_models.py --directory models
 docker compose run --rm --entrypoint python app -m ai.model_check --models /models --device cpu --verify-hashes
 ```
 
-Источники, лицензии и атрибуция: [models/NOTICE.md](models/NOTICE.md). Контрольные суммы: `ai/mac-models.lock.json`, `models/source-models.lock.json`, `models/github-release.lock.json`. Модели и пользовательские записи не включаются в Docker-образ.
+Источники, лицензии и атрибуция: [models/NOTICE.md](models/NOTICE.md). Контрольные суммы: `ai/mac-models.lock.json`, `models/source-models.lock.json`, `models/github-release.lock.json`, `models/repository-models.lock.json`. Модели и пользовательские записи не включаются в Docker-образ.
 
 ## Данные и конфигурация
 

@@ -95,9 +95,7 @@ def environment(args):
     if args.profile == 'mac':
         if platform.system() != 'Darwin' or platform.machine() != 'arm64':
             raise SystemExit('Профиль mac требует macOS Apple Silicon. Для Linux используйте --profile cuda.')
-        models = args.models or env.get('MEETING_MODEL_DIR')
-        if not models:
-            raise SystemExit('Укажите --models /path/to/models или MEETING_MODEL_DIR в .env.')
+        models = args.models or env.get('MEETING_MODEL_DIR') or ROOT / 'models'
         folder = Path(models).expanduser().resolve()
         env.update(AI_ASR='mixed_ctc', AI_ASR_PATH=str(folder / 'asr'),
                    AI_DIARIZER='sherpa', AI_DIARIZATION_PATH=str(folder / 'diarization'),
@@ -115,6 +113,12 @@ def environment(args):
     return env
 
 
+def prepare_bundled_models(args, env):
+    # External and read-only Docker mounts must already contain assembled weights.
+    if args.profile in ('mac', 'windows', 'brev') and Path(env['AI_ASR_PATH']).parent == ROOT / 'models':
+        call([sys.executable, ROOT / 'scripts/prepare_repo_models.py'])
+
+
 def check_models(args, env, verify_hashes=False):
     command = [args.worker_python or args.python, '-m', 'ai.model_check',
                '--models', env['MEETING_MODEL_DIR'], '--device', env['AI_DEVICE']]
@@ -128,6 +132,7 @@ def run(args):
     host, port = listen_address(env)
     if not (ROOT / 'frontend/dist/index.html').exists():
         raise SystemExit('Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend.')
+    prepare_bundled_models(args, env)
     if args.profile != 'fixture':
         if args.profile in ('windows', 'brev'):
             check_models(args, env)
@@ -208,7 +213,9 @@ def main():
     elif args.action == 'doctor':
         if args.profile not in ('windows', 'brev'):
             parser.error('doctor проверяет исходные веса в профилях brev и windows')
-        check_models(args, environment(args), verify_hashes=True)
+        env = environment(args)
+        prepare_bundled_models(args, env)
+        check_models(args, env, verify_hashes=True)
     else:
         run(args)
 

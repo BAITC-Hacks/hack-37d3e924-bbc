@@ -63,3 +63,16 @@ Before merge, verify ownership boundaries, contract compatibility, relevant test
 
 At feature freeze, do not start optional work. Run `$judge-readiness`, turn every PARTIAL/FAIL into a P0/P1 fix, and re-run the complete scenario.
 
+
+## Meeting protocol project override — 2026-09-23
+
+The team lead's current product instructions supersede the old three-role template above and legacy role guidance for this project.
+
+- Participant 1 owns ai/ and AI-specific dependencies/instructions. The interface is ai.pipeline.run_pipeline(input_data, on_progress=None). No separate AI backend.
+- Participant 2 owns backend/ AND frontend/, SQLite storage, the separate worker, review persistence and DOCX export.
+- The team lead owns contracts/, shared launch configuration, README, acceptance and integration. Do not delegate both implementation lanes to the team lead.
+- contracts/ is the schema source of truth; docs/API_CONTRACT.md and docs/ML_CONTRACT.md describe the proposed integration. Use backlog/AI.md, backlog/APP.md and backlog/LEAD.md.
+- Old ml/ ownership, PostgreSQL defaults and classifier/predict contracts are obsolete for this case. Legacy role skills requiring those assumptions must not be applied unchanged.
+- Audio and meeting text must never go to external cloud APIs. No automatic cloud fallback. Prepare local weights/dependencies, then verify offline processing.
+- Fixtures must be explicitly marked synthetic. Never report a fixture run as model quality evidence.
+- Shared contract/configuration changes belong to the team lead and are communicated to both participants together; FROZEN requires actual agreement, not an assumed approval.

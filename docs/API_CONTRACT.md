@@ -1,89 +1,54 @@
-# API Contract — Frontend ↔ Backend
+# Frontend ↔ Backend: HTTP baseline
 
-Status: `DRAFT | FROZEN`
-Contract owner after freeze: Backend
+Владелец: тимлид. Предложение для ранней интеграции, ещё не FROZEN. Результат строго из contracts/result.schema.json. HTTP-поля находятся в оболочке, а не в результате ИИ.
 
-## Global conventions
+База /api/v1. GET /health → 200 {"status":"ok"} (не доказывает готовность моделей).
 
-- Base URL: `/api/v1`
-- Content type: `application/json`
-- Datetime format: ISO 8601 UTC
-- IDs: strings unless explicitly stated otherwise
+Ошибка всех маршрутов, включая валидацию:
+{"error":{"code":"VALIDATION_ERROR","message":"Проверьте данные","details":{}}}
 
-## Error envelope
+422 VALIDATION_ERROR, 413 FILE_TOO_LARGE, 415 UNSUPPORTED_AUDIO, 404 NOT_FOUND, 409 INVALID_STATE или REVISION_CONFLICT, 500 INTERNAL_ERROR. details — безопасные описания полей; не включать исключения или содержимое записи.
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Human-readable message",
-    "details": {}
-  }
-}
-```
+## Создание и очередь
 
-## Health
+POST /api/v1/meetings, multipart/form-data:
+- audio — файл;
+- metadata — JSON-строка:
+{"title":"Демо","meeting_datetime":"2026-09-23T10:00:00+05:00","timezone":"Asia/Qyzylorda","participants":[{"id":"p1","name":"Марсель","speaker_ids":[]}]}
 
-### `GET /health`
+title: 1–200 символов после trim; остальные поля по входной схеме. Сервер генерирует meeting_id и безопасный audio_path. Стартовое предложение: 100 MiB, WAV/MP3/M4A/FLAC; проверять размер потока и фактическое декодирование. Успех только после сохранения файла и задания. Ответ 202 Meeting.
 
-Response `200`:
+## Список и статус
 
-```json
-{"status":"ok"}
-```
+GET /api/v1/meetings → 200 {"items":[Meeting]}, новые первыми. В списке result всегда null; содержимое получают отдельным GET.
 
-## Primary endpoint
+GET /api/v1/meetings/{id} → 200 Meeting:
+{"id":"demo-mixed-001","title":"Демо","meeting_datetime":"2026-09-23T10:00:00+05:00","timezone":"Asia/Qyzylorda","status":"queued","stage":null,"mode":"real","error":null,"revision":0,"result":null}
 
-### `<METHOD> /api/v1/<resource>`
+Meeting имеет ровно эти поля:
+- status: queued | processing | done | failed.
+- stage: null либо стадия из ML_CONTRACT; при done/failed null.
+- mode: real | fixture, задаётся конфигурацией backend, не клиентом.
+- error: null или {"code":"PROCESSING_FAILED","message":"Обработка не завершена","details":{}}; при failed обязателен.
+- result: null до done, затем исправленный результат или original.
+- revision: целое >=0; первая сохранённая машинная версия 1, каждая правка +1.
 
-Purpose: <!-- what user action this supports -->
+UI опрашивает статус; искусственного процента нет.
+GET /api/v1/meetings/{id}/original → 200 исходный неизменяемый Result; до done 409.
 
-Authentication: `none | bearer token`
+## Исправления
 
-Request:
+PUT /api/v1/meetings/{id}/review:
+{"expected_revision":1,"participants":[{"id":"p1","name":"Марсель","speaker_ids":["SPEAKER_00"]}],"tasks":[],"summary":"Исправленное саммари"}
 
-```json
-{
-  "field": "value"
-}
-```
+Только done. Полная замена трёх редактируемых полей, типы по Result. Сервер собирает и валидирует весь результат, ссылки и уникальность меток. Метки speaker_ids берутся из segments; segments и метаданные неизменяемы. Нельзя удалить участника и сохранить ссылку на него. При null исполнителе/сроке needs_review=true. Новая задача требует источника. expected_revision проверять транзакционно; конфликт → 409 REVISION_CONFLICT. Успех → 200 Meeting с новой revision. Original не перезаписывать.
 
-Validation:
+## Retry, удаление, DOCX
 
-| Field | Type | Required | Constraints |
-|---|---|---:|---|
-| `field` | string | yes | non-empty |
+- POST /api/v1/meetings/{id}/retry: без тела, только failed → queued; ответ 202 Meeting, error/stage очищены. Для queued/processing/done → 409. Это не переработка успешного результата с потерей правок.
+- DELETE /api/v1/meetings/{id}: 204 после удаления файла, результатов и очереди. processing → 409. Для queued удаление атомарно согласуется с захватом worker: либо удалено до захвата, либо 409. Ошибку удаления файла не скрывать успешным ответом.
+- GET /api/v1/meetings/{id}/export.docx: только done, иначе 409. 200 с application/vnd.openxmlformats-officedocument.wordprocessingml.document и Content-Disposition attachment с безопасным именем. Одна согласованная последняя сохранённая версия. title, дата/зона, участники, саммари, поручения и транскрипт; null — «требует уточнения», fixture — «ТЕСТОВЫЙ РЕЗУЛЬТАТ».
 
-Success response `200/201`:
+## Интеграционная проверка
 
-```json
-{
-  "id": "...",
-  "result": {}
-}
-```
-
-Errors:
-
-| Status | Code | Condition |
-|---:|---|---|
-| 400 | `VALIDATION_ERROR` | Invalid business input |
-| 401 | `UNAUTHORIZED` | Missing/invalid auth when required |
-| 404 | `NOT_FOUND` | Resource does not exist |
-| 422 | `REQUEST_SCHEMA_ERROR` | Malformed request |
-| 500 | `INTERNAL_ERROR` | Unexpected failure without leaked details |
-
-## Contract test examples
-
-Valid request:
-
-```json
-{}
-```
-
-Invalid request:
-
-```json
-{}
-```
-
+Общий fixture → UI → правка → PUT → повторный GET → DOCX с этой правкой. Затем тот же сценарий mode=real с worker и локальными весами. Битый JSON/сбой → failed. После рестарта правки сохраняются. Полная приёмка: docs/ACCEPTANCE.md.

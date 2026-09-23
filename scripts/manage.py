@@ -30,8 +30,7 @@ def load_env():
 
 def default_python():
     if IS_WINDOWS:
-        candidates = [ROOT / '.venv/Scripts/python.exe',
-                      ROOT / 'prototypes/meeting-mvp/.venv/Scripts/python.exe']
+        candidates = [ROOT / '.venv/Scripts/python.exe']
     else:
         candidates = [ROOT / '.venv/bin/python']
     for candidate in candidates:
@@ -103,8 +102,8 @@ def environment(args):
         env.update(AI_ASR='mixed_ctc', AI_ASR_PATH=str(folder / 'asr'),
                    AI_DIARIZER='sherpa', AI_DIARIZATION_PATH=str(folder / 'diarization'),
                    AI_LLM='mlx', AI_LLM_PATH=str(folder / 'llm'), AI_DEVICE='cpu')
-    elif args.profile == 'windows':
-        folder = Path(args.models or env.get('MEETING_MODEL_DIR') or ROOT / '.local/models').expanduser().resolve()
+    elif args.profile in ('windows', 'brev'):
+        folder = Path(args.models or env.get('MEETING_MODEL_DIR') or ROOT / 'models').expanduser().resolve()
         env.update(MEETING_MODEL_DIR=str(folder), AI_ASR='mixed_ctc',
                    AI_ASR_PATH=str(folder / 'asr'), AI_DIARIZER='sherpa',
                    AI_DIARIZATION_PATH=str(folder / 'diarization'),
@@ -112,11 +111,12 @@ def environment(args):
                    AI_DEVICE=args.device, AI_QUANTIZATION='none')
         env.setdefault('AI_CONTEXT_TOKENS', '2048')
         env.setdefault('AI_MAX_NEW_TOKENS', '512')
+        env.setdefault('AI_THREADS', '4')
     return env
 
 
-def check_windows(args, env, verify_hashes=False):
-    command = [args.worker_python or args.python, '-m', 'ai.windows_check',
+def check_models(args, env, verify_hashes=False):
+    command = [args.worker_python or args.python, '-m', 'ai.model_check',
                '--models', env['MEETING_MODEL_DIR'], '--device', env['AI_DEVICE']]
     if verify_hashes:
         command.append('--verify-hashes')
@@ -125,11 +125,12 @@ def check_windows(args, env, verify_hashes=False):
 
 def run(args):
     env = environment(args)
+    host, port = listen_address(env)
     if not (ROOT / 'frontend/dist/index.html').exists():
         raise SystemExit('Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend.')
     if args.profile != 'fixture':
-        if args.profile == 'windows':
-            check_windows(args, env)
+        if args.profile in ('windows', 'brev'):
+            check_models(args, env)
         call([args.worker_python or args.python, '-c', 'from ai.settings import Settings; Settings.from_env()'], env)
     children = []
     def stop(signum=None, frame=None):
@@ -140,9 +141,9 @@ def run(args):
     signal.signal(signal.SIGTERM, interrupted)
     try:
         for cmd in ([args.worker_python or args.python, '-m', 'backend.worker'],
-                    [args.python, '-m', 'uvicorn', 'backend.app:app', '--host', '127.0.0.1', '--port', env.get('BACKEND_PORT', '8000')]):
+                    [args.python, '-m', 'uvicorn', 'backend.app:app', '--host', host, '--port', str(port)]):
             children.append(subprocess.Popen(cmd, cwd=ROOT, env=env, **worker_popen_kwargs()))
-        print('Приложение: http://127.0.0.1:'+env.get('BACKEND_PORT','8000'), flush=True)
+        print(f'HTTP API и интерфейс: {host}:{port}', flush=True)
         print('Режим: '+('ТЕСТОВАЯ ФИКСТУРА — модели не запускаются' if args.profile=='fixture' else 'локальные модели'), flush=True)
         while all(child.poll() is None for child in children):
             time.sleep(.3)
@@ -153,14 +154,27 @@ def run(args):
         stop()
 
 
+def listen_address(env):
+    """A server may bind all interfaces; developer runs remain loopback by default."""
+    import ipaddress
+    try:
+        host = str(ipaddress.ip_address(env.get('BACKEND_HOST', '127.0.0.1')))
+        port = int(env.get('BACKEND_PORT', '8000'))
+        if not 1 <= port <= 65535:
+            raise ValueError()
+    except ValueError:
+        raise SystemExit('BACKEND_HOST должен быть IP-адресом, BACKEND_PORT — числом от 1 до 65535.') from None
+    return host, port
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['setup', 'run', 'verify', 'doctor'])
-    parser.add_argument('--profile', choices=['mac', 'cuda', 'windows', 'fixture'],
-                        default='windows' if IS_WINDOWS else 'mac' if sys.platform=='darwin' else 'cuda')
+    parser.add_argument('--profile', choices=['brev', 'mac', 'cuda', 'windows', 'fixture'],
+                        default='windows' if IS_WINDOWS else 'mac' if sys.platform=='darwin' else 'brev')
     parser.add_argument('--models')
     parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu',
-                        help='Device for the Windows same-weight runtime; no automatic fallback')
+                        help='Device for the Brev/Windows original-weight runtime; no automatic fallback')
     parser.add_argument('--worker-python', help='Optional separate preinstalled AI environment')
     parser.add_argument('--python', default=default_python())
     args = parser.parse_args()
@@ -170,6 +184,12 @@ def main():
             raise SystemExit('Для установки используйте Python 3.12 или новее.')
         if args.profile=='mac' and (platform.system()!='Darwin' or platform.machine()!='arm64'):
             raise SystemExit('Профиль mac требует Apple Silicon.')
+        if args.profile=='brev' and (platform.system()!='Linux' or platform.machine() not in ('x86_64', 'AMD64')):
+            raise SystemExit('Устанавливайте профиль brev на Linux x86_64 (машина Brev); для Mac используйте mac.')
+        if args.profile=='brev' and sys.version_info[:2] != (3, 12):
+            raise SystemExit('Зафиксированное окружение Brev требует Python 3.12.')
+        if args.profile=='brev' and args.device!='cpu':
+            raise SystemExit('Профиль brev устанавливает CPU PyTorch. GPU-окружение задайте отдельно через --worker-python.')
         if not Path(args.python).exists():
             call([sys.executable, '-m', 'venv', str(Path(args.python).parent.parent)])
         pip_command = [args.python, '-m', 'pip', 'install', '-r', 'requirements-test.txt']
@@ -180,15 +200,15 @@ def main():
         call([executable('npm'), 'ci', '--prefix', 'frontend'])
         call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
     elif args.action == 'verify':
-        for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests', 'scripts/tests'):
+        for tests in ('backend/tests', 'ai/tests', 'scripts/tests'):
             call([args.python, '-m', 'pytest', tests, '-q'])
         call([executable('npm'), 'test', '--prefix', 'frontend'])
         call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
         call([args.python, '-m', 'compileall', '-q', 'backend', 'ai', 'scripts'])
     elif args.action == 'doctor':
-        if args.profile != 'windows':
-            parser.error('doctor currently checks the Windows model profile; use --profile windows')
-        check_windows(args, environment(args), verify_hashes=True)
+        if args.profile not in ('windows', 'brev'):
+            parser.error('doctor проверяет исходные веса в профилях brev и windows')
+        check_models(args, environment(args), verify_hashes=True)
     else:
         run(args)
 

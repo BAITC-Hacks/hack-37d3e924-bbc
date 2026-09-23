@@ -1,0 +1,45 @@
+name: hattama
+
+services:
+  app:
+    image: hattama:brev
+    platform: linux/amd64
+    build:
+      context: .
+      target: runtime
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      APP_PROFILE: ${APP_PROFILE:-brev}
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: "8000"
+      DATA_DIR: /data
+      DATABASE_PATH: /data/meetings.sqlite3
+      AI_STATE_DIR: /data/ai-private
+      MEETING_MODEL_DIR: /models
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
+      AI_CONTEXT_TOKENS: ${AI_CONTEXT_TOKENS:-2048}
+      AI_MAX_NEW_TOKENS: ${AI_MAX_NEW_TOKENS:-512}
+    ports:
+      - "${BREV_BIND_ADDRESS:-127.0.0.1}:${BREV_HOST_PORT:-8000}:8000"
+    volumes:
+      - app-data:/data
+      - type: bind
+        source: ${MEETING_MODEL_DIR:-./models}
+        target: /models
+        read_only: true
+        bind:
+          create_host_path: false
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  app-data:

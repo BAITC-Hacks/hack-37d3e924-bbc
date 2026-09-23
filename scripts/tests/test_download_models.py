@@ -114,7 +114,7 @@ def test_release_preserves_original_model_pins():
     release = json.loads((root / 'models/github-release.lock.json').read_text())
     download.validate_manifest(release)
     by_path = {item['path']: item for item in release['files']}
-    for source in ['ai/mac-models.lock.json', 'prototypes/meeting-mvp/models.lock.json']:
+    for source in ['ai/mac-models.lock.json', 'models/source-models.lock.json']:
         upstream = json.loads((root / source).read_text())
         for item in upstream['files']:
             assert all(by_path[item['path']][key] == value for key, value in item.items())

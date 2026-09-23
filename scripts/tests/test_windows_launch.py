@@ -33,6 +33,6 @@ def test_doctor_uses_ai_environment_and_verifies_hashes(tmp_path, monkeypatch):
     env = {'MEETING_MODEL_DIR': str(tmp_path), 'AI_DEVICE': 'cpu'}
     calls = []
     monkeypatch.setattr(manage, 'call', lambda cmd, environment: calls.append((cmd, environment)))
-    manage.check_windows(args, env, verify_hashes=True)
-    assert calls == [(['worker-python', '-m', 'ai.windows_check', '--models', str(tmp_path),
+    manage.check_models(args, env, verify_hashes=True)
+    assert calls == [(['worker-python', '-m', 'ai.model_check', '--models', str(tmp_path),
                       '--device', 'cpu', '--verify-hashes'], env)]

@@ -1,8 +1,0 @@
-#!/bin/bash
-set -euo pipefail
-cd "$(dirname "$0")"
-python3 setup_preflight.py
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.lock.txt
-.venv/bin/python download_models.py
-echo 'Готово. Запуск: ./start.command'

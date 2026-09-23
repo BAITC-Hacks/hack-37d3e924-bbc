@@ -34,12 +34,14 @@ class Settings:
                 language=os.getenv('AI_LANGUAGE') or None, quantization=os.getenv('AI_QUANTIZATION', 'none'),
                 num_speakers=int(os.getenv('AI_NUM_SPEAKERS', '0')), max_seconds=int(os.getenv('AI_MAX_SECONDS', '3600')),
                 context_tokens=int(os.getenv('AI_CONTEXT_TOKENS', '2048' if llm == 'mlx_torch' else '8192')),
-                max_new_tokens=int(os.getenv('AI_MAX_NEW_TOKENS', '512' if llm == 'mlx_torch' else '2048')))
+                max_new_tokens=int(os.getenv('AI_MAX_NEW_TOKENS', '512' if llm == 'mlx_torch' else '2048')),
+                threads=int(os.getenv('AI_THREADS', '4')))
             require(s.asr in ('whisper', 'mixed_ctc') and s.diarizer in ('community1', 'sherpa'))
             require(s.llm in ('transformers', 'mlx', 'mlx_torch') and s.device in ('cpu', 'cuda'))
             require(s.quantization in ('none', 'nf4') and s.language in (None, 'ru', 'kk'))
             require(s.llm != 'mlx_torch' or s.quantization == 'none')
             require(0 <= s.num_speakers <= 32 and 1 <= s.max_seconds <= 7200)
+            require(1 <= s.threads <= 64)
             require(2048 <= s.context_tokens <= 16384 and 256 <= s.max_new_tokens <= s.context_tokens // 2)
             for p in (s.asr_path, s.diarization_path, s.llm_path):
                 require(p and Path(p).is_dir())

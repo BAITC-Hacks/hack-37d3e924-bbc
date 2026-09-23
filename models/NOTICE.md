@@ -1,7 +1,7 @@
 # Model provenance and third-party notices
 
 This release redistributes the exact files pinned by `ai/mac-models.lock.json`
-and `prototypes/meeting-mvp/models.lock.json`. Model bytes are unchanged.
+and `models/source-models.lock.json`. Model bytes are unchanged.
 The large MLX weight file is split for transport and reassembled byte-for-byte.
 No recordings, transcripts, training datasets, credentials or caches are included.
 

@@ -1,0 +1,8 @@
+# Linux x86_64 / Python 3.12, CPU Brev instance. Original model bundle.
+# CPU wheel is pinned to the official PyTorch host; no CUDA packages are installed.
+-r requirements-base.txt
+torch @ https://download.pytorch.org/whl/cpu/torch-2.14.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=a09987c95ec4cffdb6df798d3d641558110a334cfccce22f2f046d83142bc260
+transformers==5.17.0
+safetensors==0.8.0
+sherpa-onnx==1.13.8
+tzdata==2026.4

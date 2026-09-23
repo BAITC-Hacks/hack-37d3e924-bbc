@@ -1,13 +1,14 @@
-.PHONY: setup run up verify prototype help
+.PHONY: setup run up verify doctor deploy stop logs help
 PYTHON ?= python3.12
-PROFILE ?= mac
+PROFILE ?= brev
 MODELS ?=
 
 help:
-	@echo 'make setup PROFILE=mac|cuda|fixture — зависимости и интерфейс'
-	@echo 'make up PROFILE=mac MODELS=/path/to/models — приложение и worker; Ctrl+C останавливает оба'
-	@echo 'make up PROFILE=fixture — явно синтетический сценарий без моделей'
-	@echo 'make verify — тесты и сборка; make prototype — прежний Streamlit'
+	@echo 'make setup PROFILE=brev|mac|windows|cuda|fixture — зависимости и интерфейс'
+	@echo 'make up PROFILE=brev MODELS=/path/to/models — API и worker'
+	@echo 'make doctor PROFILE=brev — проверка исходных весов'
+	@echo 'make verify — тесты и production-сборка'
+	@echo 'make deploy / stop / logs — Docker Compose на Brev'
 
 run: up
 
@@ -17,8 +18,17 @@ setup:
 up:
 	$(PYTHON) scripts/manage.py run --profile $(PROFILE) $(if $(MODELS),--models "$(MODELS)",)
 
+doctor:
+	$(PYTHON) scripts/manage.py doctor --profile $(PROFILE) $(if $(MODELS),--models "$(MODELS)",)
+
 verify:
 	$(PYTHON) scripts/manage.py verify
 
-prototype:
-	$(PYTHON) -m streamlit run prototypes/meeting-mvp/app.py --server.address 127.0.0.1 --server.port 8501 --browser.gatherUsageStats false
+deploy:
+	docker compose up -d --build
+
+stop:
+	docker compose stop
+
+logs:
+	docker compose logs -f app

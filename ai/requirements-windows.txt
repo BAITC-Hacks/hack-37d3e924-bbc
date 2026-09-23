@@ -1,0 +1,7 @@
+# Same original model snapshots, native Windows CPU or NVIDIA runtime.
+-r requirements-base.txt
+torch==2.14.0
+transformers==5.17.0
+safetensors==0.8.0
+sherpa-onnx==1.13.8
+tzdata==2026.4

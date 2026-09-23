@@ -29,7 +29,13 @@ print("blocked")
 def test_worker_peak_rss_is_explicitly_unknown_without_resource(monkeypatch):
     from ai import worker
     monkeypatch.setattr(worker,'resource',None)
+    monkeypatch.setattr(worker.sys, 'platform', 'unsupported')
     assert worker.peak_rss_bytes() is None
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows process memory API')
+def test_worker_reports_real_windows_peak_memory():
+    from ai.worker import peak_rss_bytes
+    assert peak_rss_bytes() > 0
 
 def test_input_urls_never_download(tmp_path):
     with pytest.raises(PipelineError) as e:prepare_audio('https://example.com/audio.wav',tmp_path/'out.wav')

@@ -95,7 +95,10 @@ class LocalGenerator:
     def __init__(self, settings):
         self.settings = settings
         self.format_repairs = 0
-        if settings.llm == 'mlx':
+        if settings.llm == 'mlx_torch':
+            from .mlx_torch import load_mlx_torch
+            self.model, self.tokenizer = load_mlx_torch(settings.llm_path, settings.device, settings.threads)
+        elif settings.llm == 'mlx':
             import mlx.core as mx
             from mlx_lm import load
             mx.set_cache_limit(128*1024*1024)
@@ -155,10 +158,12 @@ class LocalGenerator:
             text=''.join(parts)
         else:
             import torch
-            inputs=self.tokenizer(prompt,return_tensors='pt').to(self.model.device)
+            token_options = {'add_special_tokens': False} if self.settings.llm == 'mlx_torch' else {}
+            inputs=self.tokenizer(prompt,return_tensors='pt',**token_options).to(self.model.device)
+            options = {'logits_to_keep': 1} if self.settings.llm == 'mlx_torch' else {}
             with torch.inference_mode():
                 generated=self.model.generate(**inputs,max_new_tokens=self.settings.max_new_tokens,
-                    do_sample=False,pad_token_id=self.tokenizer.eos_token_id)
+                    do_sample=False,pad_token_id=self.tokenizer.eos_token_id,**options)
             text=self.tokenizer.decode(generated[0,inputs.input_ids.shape[1]:],skip_special_tokens=True)
         return text
 

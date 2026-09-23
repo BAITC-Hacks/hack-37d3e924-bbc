@@ -7,11 +7,13 @@ import subprocess
 import sys
 import time
 
-from config import MODEL_DIR, DATA_DIR, offline_env
+from config import MODEL_DIR, DATA_DIR, REPO_ROOT, offline_env, llm_runtime, llm_device
 from core import read_json, write_json, group_words, parse_model_json, validate_analysis
 from reconcile import reconcile_tasks
 
 os.environ.update(offline_env())
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 os.umask(0o077)
 
 def deny_network(event, args):
@@ -153,31 +155,118 @@ source_ids — точные номера ВСЕХ нужных реплик: д�
 Относительные сроки не пересчитывай. Условное действие сохраняй с условием.
 Повтор одного поручения в итоговом перечислении не создаёт нового поручения. Не добавляй пояснений вне JSON.'''
 
-def analyze(run):
-    from config import runtime_notice
-    notice = runtime_notice()
-    if notice:
-        raise ValueError(notice)
-    import mlx.core as mx
-    from mlx_lm import load, stream_generate
-    from mlx_lm.sample_utils import make_sampler
-    request = read_json(run/'request.json')
-    segments = request['segments']
-    names = request.get('names', {})
-    # Bound prompt size on 8 GB machines. Preserve adjacent context across chunk boundaries.
+WINDOWS_CONTEXT_TOKENS = 2048
+WINDOWS_OUTPUT_TOKENS = 512
+
+
+class AnalysisLimitError(ValueError):
+    """A safe, actionable context-limit message for the worker status."""
+
+
+def prompt_tokens(tokenizer, prompt):
+    return len(tokenizer.encode(prompt, add_special_tokens=False))
+
+
+def analysis_prompt(tokenizer, chunk, names, results, input_budget=None):
+    transcript = '\n'.join(f"[{s['id']}] {names.get(s['speaker'],s['speaker'])}: {s['text']}" for s in chunk)
+    context = [{'task': t['task'][:500], 'owner': (t.get('owner') or '')[:100]} for t in results[-8:]]
+    while True:
+        prompt = tokenizer.apply_chat_template([{'role': 'system', 'content': SYSTEM},
+            {'role': 'user', 'content': 'РАНЕЕ ВЫДЕЛЕННЫЕ ПОРУЧЕНИЯ (контекст, не извлекай их повторно без новых реплик):\n' +
+             json.dumps(context, ensure_ascii=False) + '\nЕсли новые реплики уточняют прежнее поручение, верни его с новым сроком и новыми source_ids.\nТРАНСКРИПТ НАЧАЛО\n' +
+             transcript + '\nТРАНСКРИПТ КОНЕЦ'}], tokenize=False, add_generation_prompt=True)
+        if input_budget is None or prompt_tokens(tokenizer, prompt) <= input_budget:
+            return prompt
+        if not context:
+            raise AnalysisLimitError('Реплика не помещается в контекст 2048 токенов с резервом 512 для ответа. Разделите длинную реплику на части.')
+        # Earlier candidates are auxiliary context; source segments are never truncated.
+        context.pop(0)
+
+
+def analysis_chunks(segments, names, tokenizer, input_budget=None):
+    # Preserve adjacent source context, reducing overlap only when the token budget requires it.
     chunks, current, size = [], [], 0
+    def fits(chunk):
+        try:
+            analysis_prompt(tokenizer, chunk, names, [], input_budget)
+            return True
+        except AnalysisLimitError:
+            return False
     for segment in segments:
         length = len(segment['text'])
-        if current and size+length > 2400:
+        if current and (size+length > 2400 or (input_budget is not None and not fits(current + [segment]))):
             chunks.append(current)
             current = current[-3:]
+            if input_budget is not None:
+                while current and not fits(current + [segment]):
+                    current = current[1:]
             size = sum(len(s['text']) for s in current)
         current.append(segment)
         size += length
+        if input_budget is not None:
+            analysis_prompt(tokenizer, current, names, [], input_budget)
     if current:
         chunks.append(current)
+    return chunks
+
+
+def load_analysis_generator():
+    if llm_runtime() == 'mlx_torch':
+        import torch
+        from ai.mlx_torch import load_mlx_torch
+        device = llm_device()
+        model, tokenizer = load_mlx_torch(MODEL_DIR/'llm', device=device, threads=4)
+        def generate(prompt, max_tokens, on_tokens=None):
+            if not 1 <= max_tokens <= WINDOWS_OUTPUT_TOKENS:
+                raise AnalysisLimitError('Runtime mlx_torch поддерживает ответ до 512 токенов.')
+            encoded = tokenizer(prompt, return_tensors='pt', add_special_tokens=False)
+            count = encoded['input_ids'].shape[1]
+            if count + max_tokens > WINDOWS_CONTEXT_TOKENS:
+                raise AnalysisLimitError('Запрос не помещается в контекст 2048 токенов. Разделите текст на части; текст не был обрезан.')
+            encoded = {key: value.to(device) for key, value in encoded.items()}
+            with torch.inference_mode():
+                output = model.generate(**encoded, max_new_tokens=max_tokens, do_sample=False, logits_to_keep=1)
+            new_tokens = output[0][count:]
+            if on_tokens is not None:
+                on_tokens(len(new_tokens))
+            return tokenizer.decode(new_tokens, skip_special_tokens=True)
+        return tokenizer, generate
+    if llm_runtime() != 'mlx':
+        raise ValueError('Неизвестный MEETING_LLM_RUNTIME. Автоматического переключения нет.')
+    import mlx.core as mx
+    from mlx_lm import load, stream_generate
+    from mlx_lm.sample_utils import make_sampler
     mx.set_cache_limit(128 * 1024 * 1024)
     model, tokenizer = load(str(MODEL_DIR/'llm'))
+    def generate(prompt, max_tokens, on_tokens=None):
+        parts = []
+        try:
+            for response in stream_generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
+                    sampler=make_sampler(temp=0), prefill_step_size=256):
+                parts.append(response.text)
+                if on_tokens is not None and response.generation_tokens % 32 == 0:
+                    on_tokens(response.generation_tokens)
+            return ''.join(parts)
+        finally:
+            mx.clear_cache()
+    return tokenizer, generate
+
+
+def analyze(run):
+    from config import runtime_notice, model_status
+    notice = runtime_notice()
+    if notice:
+        raise ValueError(notice)
+    if not model_status()['Поручения и саммари']:
+        raise ValueError('Исходные веса Qwen3 не подтверждены. Выполните download_models.py --verify-only для выбранного MEETING_MODEL_DIR.')
+    request = read_json(run/'request.json')
+    segments = request['segments']
+    names = request.get('names', {})
+    tokenizer, generate_answer = load_analysis_generator()
+    is_torch = llm_runtime() == 'mlx_torch'
+    output_tokens = WINDOWS_OUTPUT_TOKENS if is_torch else 2600
+    input_budget = WINDOWS_CONTEXT_TOKENS - output_tokens if is_torch else None
+    chunks = analysis_chunks(segments, names, tokenizer, input_budget)
     reconciliation_calls = 0
     def generate(system, content):
         nonlocal reconciliation_calls
@@ -186,25 +275,16 @@ def analyze(run):
                  .96 + .03 * min(reconciliation_calls / 12, 1))
         prompt = tokenizer.apply_chat_template([{'role': 'system', 'content': system},
             {'role': 'user', 'content': content}], tokenize=False, add_generation_prompt=True)
-        answer = ''.join(response.text for response in stream_generate(model, tokenizer,
-            prompt=prompt, max_tokens=512, sampler=make_sampler(temp=0), prefill_step_size=256))
-        mx.clear_cache()
-        return answer
+        return generate_answer(prompt, 512)
 
     results, summaries, warnings = [], [], []
     for i, chunk in enumerate(chunks):
         progress(run, f'Выделяем поручения · часть {i+1}/{len(chunks)}', .1+.8*i/max(len(chunks),1))
-        transcript = '\n'.join(f"[{s['id']}] {names.get(s['speaker'],s['speaker'])}: {s['text']}" for s in chunk)
-        prompt = tokenizer.apply_chat_template([{'role':'system','content':SYSTEM},
-            {'role':'user','content':'РАНЕЕ ВЫДЕЛЕННЫЕ ПОРУЧЕНИЯ (контекст, не извлекай их повторно без новых реплик):\n' + json.dumps([{'task': t['task'][:500], 'owner': t['owner'][:100]} for t in results[-8:]], ensure_ascii=False) + '\nЕсли новые реплики уточняют прежнее поручение, верни его с новым сроком и новыми source_ids.\nТРАНСКРИПТ НАЧАЛО\n'+transcript+'\nТРАНСКРИПТ КОНЕЦ'}], tokenize=False, add_generation_prompt=True)
-        parts = []
-        for response in stream_generate(model, tokenizer, prompt=prompt, max_tokens=2600,
-                sampler=make_sampler(temp=0), prefill_step_size=256):
-            parts.append(response.text)
-            if response.generation_tokens % 32 == 0:
-                progress(run, f'Поручения · часть {i+1}/{len(chunks)} · формируем ответ ({response.generation_tokens})',
-                         min(.95, .1+.85*(i+min(.95,response.generation_tokens/2600))/len(chunks)))
-        answer = ''.join(parts)
+        prompt = analysis_prompt(tokenizer, chunk, names, results, input_budget)
+        def on_tokens(count):
+            progress(run, f'Поручения · часть {i+1}/{len(chunks)} · формируем ответ ({count})',
+                     min(.95, .1+.85*(i+min(.95,count/output_tokens))/len(chunks)))
+        answer = generate_answer(prompt, output_tokens, on_tokens)
         (run/f'model-answer-{i}.txt').write_text(answer, encoding='utf-8')
         raw = parse_model_json(answer)
         checked = validate_analysis(raw, chunk, names, request.get('meeting_date'))
@@ -214,7 +294,6 @@ def analyze(run):
             # Deduplicate identical evidence generated in overlapping context chunks.
             if not any(t['quote'] == task['quote'] and t['owner'] == task['owner'] and t['task'] == task['task'] for t in results):
                 results.append(task)
-        mx.clear_cache()
     progress(run, 'Сверяем повторы и уточнения между частями', .96)
     results, reconciliation_warnings = reconcile_tasks(results, segments, names,
         request.get('meeting_date'), generate)
@@ -249,6 +328,8 @@ def orchestrate(run, kind):
             status = read_json(run/'status.json')
         except (OSError, ValueError):
             status = {}
+        if isinstance(error, subprocess.CalledProcessError) and status.get('error_code') == 'CONTEXT_LIMIT':
+            label = status['label']
         status.update({'state':'error','label':label,'progress':0,
             'hint':'Транскрипт и промежуточные результаты сохранены. Подробности в worker.log.'})
         write_json(run/'status.json', status)
@@ -265,4 +346,13 @@ if __name__ == '__main__':
     if args.stage in ('audio','analysis'):
         orchestrate(args.run, args.stage)
     else:
-        {'diarize':diarize,'transcribe':transcribe,'analyze':analyze}[args.stage](args.run)
+        try:
+            {'diarize':diarize,'transcribe':transcribe,'analyze':analyze}[args.stage](args.run)
+        except AnalysisLimitError as error:
+            try:
+                status = read_json(args.run/'status.json')
+            except (OSError, ValueError):
+                status = {}
+            status.update({'state': 'error', 'label': str(error), 'progress': 0, 'error_code': 'CONTEXT_LIMIT'})
+            write_json(args.run/'status.json', status)
+            raise

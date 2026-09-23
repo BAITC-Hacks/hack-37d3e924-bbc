@@ -17,7 +17,8 @@ class GpuSampler:
         while not self.stop_event.is_set():
             try:
                 p=subprocess.run(['nvidia-smi','--query-compute-apps=pid,used_gpu_memory',
-                    '--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=2)
+                    '--format=csv,noheader,nounits'],capture_output=True,text=True,timeout=2,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
                 values=[]
                 if p.returncode==0:
                     for row in p.stdout.splitlines():

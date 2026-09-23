@@ -27,16 +27,50 @@ def verified_models(tmp_path, monkeypatch):
     receipt_path.write_text(json.dumps(receipt), encoding='utf-8')
     monkeypatch.setattr(config, 'ROOT', tmp_path)
     monkeypatch.setattr(config, 'MODEL_DIR', model_dir)
+    monkeypatch.setenv('MEETING_LLM_RUNTIME', 'mlx_torch')
+    monkeypatch.setenv('MEETING_DEVICE', 'cpu')
     monkeypatch.setattr(config, 'find_spec', lambda name: object())
     return model_dir, receipt_path, receipt
 
 
 def test_verified_llm_still_needs_runtime(verified_models, monkeypatch):
     assert all(config.model_status().values())
-    monkeypatch.setattr(config, 'find_spec', lambda name: None)
+    monkeypatch.setattr(config, 'find_spec', lambda name: None if name == 'transformers' else object())
     status = config.model_status()
     assert status['Распознавание речи'] and status['Разделение говорящих']
     assert not status['Поручения и саммари']
+
+
+@pytest.mark.parametrize('missing,component', [
+    ('torch', 'Распознавание речи'), ('soundfile', 'Распознавание речи'),
+    ('imageio_ffmpeg', 'Распознавание речи'), ('sherpa_onnx', 'Разделение говорящих'),
+    ('safetensors', 'Поручения и саммари'), ('tokenizers', 'Поручения и саммари'),
+])
+def test_each_stage_requires_its_runtime_dependencies(verified_models, monkeypatch, missing, component):
+    monkeypatch.setattr(config, 'find_spec', lambda name: None if name == missing else object())
+    assert not config.model_status()[component]
+
+
+def test_explicit_mlx_never_falls_back_on_windows(verified_models, monkeypatch):
+    monkeypatch.setattr(config.sys, 'platform', 'win32')
+    monkeypatch.setenv('MEETING_LLM_RUNTIME', 'mlx')
+    assert not config.model_status()['Поручения и саммари']
+    assert 'Apple Silicon' in config.runtime_notice()
+
+
+def test_macos_keeps_mlx_readiness(verified_models, monkeypatch):
+    monkeypatch.setattr(config.sys, 'platform', 'darwin')
+    monkeypatch.delenv('MEETING_LLM_RUNTIME')
+    assert config.llm_runtime() == 'mlx'
+    assert config.model_status()['Поручения и саммари']
+
+
+@pytest.mark.parametrize('runtime,device', [('unexpected', 'cpu'), ('mlx_torch', 'auto')])
+def test_invalid_selection_is_not_ready(verified_models, monkeypatch, runtime, device):
+    monkeypatch.setenv('MEETING_LLM_RUNTIME', runtime)
+    monkeypatch.setenv('MEETING_DEVICE', device)
+    assert not config.model_status()['Поручения и саммари']
+    assert config.runtime_notice()
 
 
 def test_partial_receipt_only_enables_verified_component(verified_models):
@@ -46,6 +80,15 @@ def test_partial_receipt_only_enables_verified_component(verified_models):
     assert config.model_status() == {
         'Распознавание речи': False, 'Разделение говорящих': True, 'Поручения и саммари': False,
     }
+
+
+def test_llm_receipt_must_match_pinned_hash(verified_models):
+    _, path, receipt = verified_models
+    next(item for item in receipt['files'] if item['path'].startswith('llm/'))['sha256'] = 'unverified'
+    path.write_text(json.dumps(receipt), encoding='utf-8')
+    status = config.model_status()
+    assert status['Распознавание речи'] and status['Разделение говорящих']
+    assert not status['Поручения и саммари']
 
 
 @pytest.mark.parametrize('fault', ['missing_receipt', 'stale_receipt', 'missing_weight', 'wrong_size'])

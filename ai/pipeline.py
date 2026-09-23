@@ -66,6 +66,7 @@ def run_pipeline(input_data, on_progress=None):
                 try:
                     proc=subprocess.run([sys.executable,'-m','ai.worker',name,str(folder)],
                         env=env,cwd=root,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
+                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
                         timeout=int(os.environ.get('AI_STAGE_TIMEOUT','3600')))
                 except subprocess.TimeoutExpired:
                     raise PipelineError('PROCESSING_FAILED','Превышено время обработки этапа.') from None

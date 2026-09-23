@@ -157,7 +157,7 @@ def main():
         call([executable('npm'), 'ci', '--prefix', 'frontend'])
         call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])
     elif args.action == 'verify':
-        for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests'):
+        for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests', 'scripts/tests'):
             call([args.python, '-m', 'pytest', tests, '-q'])
         call([executable('npm'), 'test', '--prefix', 'frontend'])
         call([executable('npm'), 'run', 'build', '--prefix', 'frontend'])

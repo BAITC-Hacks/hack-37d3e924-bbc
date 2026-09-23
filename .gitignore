@@ -16,3 +16,10 @@ ml/artifacts/*.tmp
 
 .local/
 .venv-*/
+
+# Optional release downloader destination; keep only metadata/licenses in Git.
+/models/asr/
+/models/diarization/
+/models/llm/
+/models/.github-model-cache/
+/models/.meeting-models-verified.json

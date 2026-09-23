@@ -13,7 +13,10 @@
 ```bash
 cp .env.example .env
 make setup PROFILE=mac
-make up PROFILE=mac MODELS=/absolute/path/to/models
+# Нужен GitHub CLI и аккаунт с доступом к этому закрытому репозиторию:
+gh auth login
+python3 scripts/download_models.py --directory .local/models
+make up PROFILE=mac MODELS="$PWD/.local/models"
 ```
 
 Каталог должен содержать `asr/model.pt`, `asr/tokens.lst`, `diarization/segmentation.onnx`, `diarization/embedding.onnx` и полный каталог `llm/` с MLX Qwen. На машине участника проверен путь:
@@ -28,7 +31,9 @@ make up PROFILE=mac MODELS=/absolute/path/to/models
 MEETING_MODEL_DIR=/absolute/path/to/models .venv/bin/python prototypes/meeting-mvp/download_models.py --verify-only
 ```
 
-При 401/403 используйте имеющиеся веса или перенесите их с подготовленной машины. [Подключение и копирование весов](prototypes/meeting-mvp/README.md#уже-скачанные-веса-и-ошибка-401403). На другом компьютере путь будет другим. Веса не включены в Git.
+Веса доступны в [GitHub Release models-mac-v1](https://github.com/BAITC-Hacks/hack-37d3e924-bbc/releases/tag/models-mac-v1): загрузчик выше не обращается к недоступному источнику Hugging Face. Комплект занимает около 3.08 ГБ; для скачивания и сборки подготовьте 6 ГБ свободного места. [Инструкция, отдельные компоненты и лицензии](models/README.md). Тяжёлые файлы не входят в историю Git.
+
+Можно также использовать имеющийся каталог или перенести веса с подготовленной машины: [подключение и копирование](prototypes/meeting-mvp/README.md#уже-скачанные-веса-и-ошибка-401403). На другом компьютере локальный путь будет другим. GitHub хранит веса, а для обработки приложение нужно запустить на совместимой машине.
 
 ### Проверка интерфейса без тяжёлых моделей
 

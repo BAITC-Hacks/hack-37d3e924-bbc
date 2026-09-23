@@ -17,9 +17,9 @@ ml/artifacts/*.tmp
 .local/
 .venv-*/
 
-# Optional release downloader destination; keep only metadata/licenses in Git.
-/models/asr/
-/models/diarization/
-/models/llm/
+# Large weights are committed in parts; assembled copies remain local.
+/models/asr/model.pt
+/models/llm/model.safetensors
+/models/**/*.assembling
 /models/.github-model-cache/
 /models/.meeting-models-verified.json

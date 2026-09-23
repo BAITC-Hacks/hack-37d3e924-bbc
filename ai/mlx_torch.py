@@ -70,10 +70,16 @@ class PackedLinear(nn.Module):
         if inputs.shape[-1] != self.in_features:
             _unsupported('linear input width does not match packed weights.')
         output = inputs.new_empty((*inputs.shape[:-1], self.out_features))
+        # CPU BF16 prefill can use a slow software kernel. Accumulate multiple
+        # tokens in native float32, rounding back to the activation dtype. Keep
+        # single-token decoding and GPU execution on their existing path.
+        cpu_prefill = (inputs.device.type == 'cpu' and inputs.dtype == torch.bfloat16
+                       and inputs.numel() > self.in_features)
+        compute_inputs = inputs.float() if cpu_prefill else inputs
         for start in range(0, self.out_features, self.packed.row_chunk):
             stop = min(start + self.packed.row_chunk, self.out_features)
-            weight = self.packed.dequantize_rows(slice(start, stop)).to(inputs.dtype)
-            output[..., start:stop] = F.linear(inputs, weight)
+            weight = self.packed.dequantize_rows(slice(start, stop)).to(compute_inputs.dtype)
+            output[..., start:stop] = F.linear(compute_inputs, weight)
         return output
 
 

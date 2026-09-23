@@ -91,6 +91,23 @@ def test_vocabulary_head_never_dequantizes_more_than_one_chunk(monkeypatch):
         original(slice(0, 1025))
 
 
+@pytest.mark.parametrize('tokens', [1, 17])
+def test_cpu_linear_matches_independent_dense_affine_reference(tokens):
+    generator = torch.Generator().manual_seed(37)
+    codes = torch.randint(0, 16, (13, 128), generator=generator)
+    scales = torch.randn((13, 2), generator=generator).to(torch.bfloat16)
+    biases = torch.randn((13, 2), generator=generator).to(torch.bfloat16)
+    packed = PackedAffine4(pack(codes), scales, biases, row_chunk=3)
+    inputs = torch.randn((1, tokens, 128), generator=generator).to(torch.bfloat16)
+    # Independent dense oracle: double accumulation on BF16-rounded weights.
+    dense = (codes.reshape(13, 2, 64).double() * scales.double().unsqueeze(-1)
+             + biases.double().unsqueeze(-1)).reshape(13, 128).to(torch.bfloat16)
+    expected = torch.matmul(inputs.double(), dense.double().T).to(torch.bfloat16)
+    actual = PackedLinear(packed)(inputs)
+    assert actual.dtype == inputs.dtype and actual.shape == (1, tokens, 13)
+    torch.testing.assert_close(actual, expected, rtol=0.008, atol=0.001)
+
+
 @pytest.mark.parametrize('fault', ['weight_dtype', 'weight_rank', 'width', 'scale_dtype',
                                   'scale_shape', 'bias_shape', 'row_chunk'])
 def test_invalid_packed_formats_fail_clearly(fault):

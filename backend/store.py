@@ -19,6 +19,7 @@ class APIError(Exception):
 class Store:
     def __init__(self, settings):
         self.settings = settings
+        settings.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         settings.audio_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         settings.database.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self.connect() as db:

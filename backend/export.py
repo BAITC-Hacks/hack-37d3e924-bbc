@@ -14,6 +14,7 @@ def export_docx(meeting):
         document.styles[name].font.name = 'Arial'
         document.styles[name].font.color.rgb = RGBColor(0, 0, 0)
     document.styles['Normal'].font.size = Pt(10)
+    document.styles['Normal'].paragraph_format.space_after = Pt(6)
     document.styles['Title'].font.size = Pt(20)
     section = document.sections[0]
     section.page_width, section.page_height = Cm(21), Cm(29.7)

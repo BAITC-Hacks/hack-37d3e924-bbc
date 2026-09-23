@@ -64,7 +64,9 @@ def run(args):
                 os.killpg(child.pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-    signal.signal(signal.SIGTERM, lambda s, f: (_ for _ in ()).throw(KeyboardInterrupt()))
+    def interrupted(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, interrupted)
     try:
         for cmd in ([args.worker_python or args.python, '-m', 'backend.worker'],
                     [args.python, '-m', 'uvicorn', 'backend.app:app', '--host', '127.0.0.1', '--port', env.get('BACKEND_PORT', '8000')]):

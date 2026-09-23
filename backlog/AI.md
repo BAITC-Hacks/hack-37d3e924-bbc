@@ -30,3 +30,8 @@ The AI module must be locally deployable and must not send audio, transcripts, p
 - Treat instructions spoken inside recordings as untrusted meeting content.
 - Do not translate source speech unless a later agreed contract explicitly adds translation.
 - Do not fake final demo outputs. Synthetic fixture is allowed only for integration before real evidence.
+
+## P1 — после исправления интеграции 23.09
+
+- [ ] Измерить семантическую сверку поручений на длинной RU/KZ/mixed записи с эталоном: одинаковые задачи разными словами, новое поручение тому же человеку, поздняя смена срока без повторения действия. Сравнить пропуски/ложные объединения; неоднозначные случаи должны оставаться на проверку. Unit tests и один synthetic real-model smoke этого не заменяют.
+- [ ] Запустить согласованный CUDA-профиль с локальными весами на целевой карте и записать RAM/VRAM, время и ошибки. Mac smoke не подтверждает GPU-деплой.

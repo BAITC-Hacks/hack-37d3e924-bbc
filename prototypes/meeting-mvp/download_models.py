@@ -22,7 +22,7 @@ def main(argv=None):
     mode.add_argument('--from-local', type=Path, metavar='MODELS_DIR',
                       help='Copy verified weights from an existing models directory; never download.')
     mode.add_argument('--verify-only', action='store_true',
-                      help='Verify every locked file in MEETING_MODEL_DIR without network or writes.')
+                      help='Verify every locked file in MEETING_MODEL_DIR without network.')
     args = parser.parse_args(argv)
     source_dir = args.from_local.expanduser().resolve() if args.from_local else None
     manifest = json.loads((ROOT/'models.lock.json').read_text())
@@ -79,6 +79,13 @@ def main(argv=None):
         if sha256(temp)!=item['sha256']:
             raise RuntimeError('Контрольная сумма не совпала: '+item['path'])
         temp.replace(target)
+    # A fast startup check can trust this receipt only after this full hash pass.
+    receipt = {'schema_version': 1, 'manifest': sha256(ROOT/'models.lock.json'),
+               'files': [{'path': item['path'], 'bytes': item['bytes'], 'sha256': item['sha256']} for item in manifest['files']]}
+    receipt_path = DEST/'.meeting-models-verified.json'
+    temporary = receipt_path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(receipt, ensure_ascii=False), encoding='utf-8')
+    temporary.replace(receipt_path)
     print('Все модели проверены. Можно работать без сети.')
 
 if __name__=='__main__':

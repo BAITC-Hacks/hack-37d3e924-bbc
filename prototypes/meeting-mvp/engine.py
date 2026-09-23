@@ -21,7 +21,13 @@ def deny_network(event, args):
 sys.addaudithook(deny_network)
 
 def progress(run, label, fraction):
-    write_json(Path(run)/'status.json', {'state': 'running', 'label': label, 'progress': fraction})
+    path = Path(run)/'status.json'
+    try:
+        status = read_json(path)
+    except (OSError, ValueError):
+        status = {}
+    status.update({'state': 'running', 'label': label, 'progress': fraction})
+    write_json(path, status)
 
 def decode_audio(path, destination):
     import imageio_ffmpeg
@@ -213,12 +219,19 @@ def orchestrate(run, kind):
             stages = ['analyze']
         for stage in stages:
             subprocess.run([sys.executable, __file__, stage, str(run)], check=True, env=offline_env())
-        write_json(run/'status.json', {'state':'done','label':'Готово','progress':1,
+        status = read_json(run/'status.json')
+        status.update({'state':'done','label':'Готово','progress':1,
             'elapsed_seconds':round(time.monotonic()-started,1)})
+        write_json(run/'status.json', status)
     except Exception as error:
         label = str(error) if isinstance(error, (ValueError, RuntimeError)) else 'Не удалось завершить обработку. Проверьте доступность моделей и свободную память.'
-        write_json(run/'status.json', {'state':'error','label':label,'progress':0,
+        try:
+            status = read_json(run/'status.json')
+        except (OSError, ValueError):
+            status = {}
+        status.update({'state':'error','label':label,'progress':0,
             'hint':'Транскрипт и промежуточные результаты сохранены. Подробности в worker.log.'})
+        write_json(run/'status.json', status)
         raise
     finally:
         lock.close()

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="440" viewBox="0 0 1440 440" role="img" aria-labelledby="title desc">
+  <title id="title">Хаттама — протокол совещания из аудио</title>
+  <desc id="desc">Русская, казахская и смешанная речь. Локальная обработка, поручения с источниками и экспорт DOCX. Иллюстрация аудиоволны и документа.</desc>
+  <rect width="1440" height="440" rx="24" fill="#173d35"/>
+  <path d="M830 0H1440V440H990Z" fill="#1d493f"/>
+  <g fill="none" stroke="#43675a" stroke-width="1" opacity=".45">
+    <path d="M1120 0V440M1240 0V440M1360 0V440M900 80H1440M930 200H1440M960 320H1440"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="72" y="48" width="280" height="34" rx="17" fill="#285449"/>
+    <text x="92" y="70" fill="#dcebdd" font-size="13" font-weight="700" letter-spacing="1.4">KZ / RU / СМЕШАННАЯ РЕЧЬ</text>
+    <text x="68" y="192" fill="#f6f5f0" font-size="94" font-weight="700" letter-spacing="-3">Хаттама</text>
+    <text x="74" y="247" fill="#d9e5d9" font-size="29">Из записи совещания —</text>
+    <text x="74" y="287" fill="#d9e5d9" font-size="29">в понятный протокол.</text>
+    <g stroke="#91c7ad" stroke-width="6" stroke-linecap="round">
+      <path d="M78 358V374M92 350V382M106 339V393M120 346V386M134 328V404M148 342V390M162 353V379M176 337V395M190 347V385M204 354V378M218 343V389M232 352V380M246 358V374"/>
+    </g>
+    <text x="282" y="373" fill="#dcebdd" font-size="18">Локально · С источниками · В DOCX</text>
+    <g transform="translate(910 65)">
+      <rect width="446" height="304" rx="18" fill="#f6f5f0"/>
+      <rect x="28" y="25" width="46" height="46" rx="12" fill="#e1e9df"/>
+      <path d="M42 37H55L62 44V61H42ZM55 37V44H62M47 49H57M47 54H57" fill="none" stroke="#26725c" stroke-width="2" stroke-linejoin="round"/>
+      <text x="90" y="46" fill="#1d302a" font-size="20" font-weight="700">Протокол совещания</text>
+      <text x="90" y="67" fill="#64736c" font-size="13">Итоги. Ответственные. Сроки.</text>
+      <path d="M28 91H418" stroke="#dce3db"/>
+      <text x="28" y="125" fill="#64736c" font-size="11" font-weight="700" letter-spacing="1.5">ПОРУЧЕНИЯ С ИСХОДНЫМИ РЕПЛИКАМИ</text>
+      <g fill="none" stroke="#26725c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M30 156L36 162L46 150M30 201L36 207L46 195"/>
+      </g>
+      <g fill="#becdc1">
+        <rect x="62" y="149" width="228" height="8" rx="4"/>
+        <rect x="62" y="166" width="162" height="6" rx="3" fill="#dce3db"/>
+        <rect x="62" y="194" width="192" height="8" rx="4"/>
+        <rect x="62" y="211" width="140" height="6" rx="3" fill="#dce3db"/>
+      </g>
+      <rect x="321" y="144" width="97" height="25" rx="12" fill="#e1e9df"/>
+      <text x="339" y="161" fill="#26725c" font-size="11" font-weight="700">ИСТОЧНИК</text>
+      <rect x="321" y="189" width="97" height="25" rx="12" fill="#e1e9df"/>
+      <text x="339" y="206" fill="#26725c" font-size="11" font-weight="700">ИСТОЧНИК</text>
+      <path d="M28 239H418" stroke="#dce3db"/>
+      <text x="28" y="273" fill="#64736c" font-size="13">Проверить → сохранить →</text>
+      <rect x="311" y="251" width="107" height="31" rx="8" fill="#26725c"/>
+      <text x="339" y="272" fill="#ffffff" font-size="14" font-weight="700">DOCX</text>
+    </g>
+  </g>
+</svg>

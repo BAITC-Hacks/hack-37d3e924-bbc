@@ -1,0 +1,10 @@
+# Explicit development profile for this Apple Silicon machine, not CUDA deployment.
+-r requirements-base.txt
+torch==2.14.0
+sherpa-onnx==1.13.8
+mlx-lm==0.31.3
+mlx==0.32.2
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+transformers==5.17.0
+requests==2.34.2

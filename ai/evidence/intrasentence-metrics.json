@@ -1,0 +1,71 @@
+{
+  "mixed-ctc": {
+    "asr": "mixed_ctc",
+    "compute_type": "checkpoint",
+    "device": "cpu",
+    "language": null,
+    "peak_rss_bytes": 1241612288,
+    "normalization": "Unicode lower-case, punctuation removed, digits are NOT expanded; no translation.",
+    "clips": [
+      {
+        "id": "mixed-intra-synthetic",
+        "duration_seconds": 5.8794375,
+        "asr_seconds": 2.516,
+        "rtf": 0.4279251062707627,
+        "reference_words": 10,
+        "audio_sha256": "523d141a33c11d81ea9ef981864e62b2e6ab6f1726a7abba73e2a6e5a2876e54",
+        "reference_sha256": "c514c3031cec6c9ed693c374842d85aa27bb43ef9fcdf8471036361896a02fb8",
+        "word_edits": 3,
+        "char_edits": 11,
+        "wer": 0.3,
+        "cer": 0.14864864864864866
+      }
+    ]
+  },
+  "base-turbo": {
+    "asr": "whisper",
+    "compute_type": "int8",
+    "device": "cpu",
+    "language": null,
+    "peak_rss_bytes": 1517256704,
+    "normalization": "Unicode lower-case, punctuation removed, digits are NOT expanded; no translation.",
+    "clips": [
+      {
+        "id": "mixed-intra-synthetic",
+        "duration_seconds": 5.8794375,
+        "asr_seconds": 15.592,
+        "rtf": 2.651980801735083,
+        "reference_words": 10,
+        "audio_sha256": "523d141a33c11d81ea9ef981864e62b2e6ab6f1726a7abba73e2a6e5a2876e54",
+        "reference_sha256": "c514c3031cec6c9ed693c374842d85aa27bb43ef9fcdf8471036361896a02fb8",
+        "word_edits": 5,
+        "char_edits": 12,
+        "wer": 0.5,
+        "cer": 0.16216216216216217
+      }
+    ]
+  },
+  "kazakh-turbo": {
+    "asr": "whisper",
+    "compute_type": "int8",
+    "device": "cpu",
+    "language": null,
+    "peak_rss_bytes": 1194409984,
+    "normalization": "Unicode lower-case, punctuation removed, digits are NOT expanded; no translation.",
+    "clips": [
+      {
+        "id": "mixed-intra-synthetic",
+        "duration_seconds": 5.8794375,
+        "asr_seconds": 17.679,
+        "rtf": 3.0069932497795353,
+        "reference_words": 10,
+        "audio_sha256": "523d141a33c11d81ea9ef981864e62b2e6ab6f1726a7abba73e2a6e5a2876e54",
+        "reference_sha256": "c514c3031cec6c9ed693c374842d85aa27bb43ef9fcdf8471036361896a02fb8",
+        "word_edits": 3,
+        "char_edits": 8,
+        "wer": 0.3,
+        "cer": 0.10810810810810811
+      }
+    ]
+  }
+}

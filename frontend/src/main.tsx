@@ -1,0 +1,647 @@
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { api } from "./api/client";
+import type { Meeting, Result, Review, Task } from "./types";
+import { reviewOf, validateReview } from "./domain";
+import "./style.css";
+
+const stages: Record<string, string> = {
+  preparing_audio: "Подготовка аудио",
+  transcribing: "Распознавание речи",
+  diarizing: "Разделение говорящих",
+  aligning: "Сопоставление реплик",
+  extracting_tasks: "Извлечение поручений",
+  summarizing: "Составление саммари",
+  validating: "Проверка результата",
+};
+const statuses: Record<string, string> = {
+  queued: "В очереди",
+  processing: "Обрабатывается",
+  done: "Готово к проверке",
+  failed: "Ошибка обработки",
+};
+function App() {
+  const [items, setItems] = useState<Meeting[]>([]),
+    [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [review, setReview] = useState<Review | null>(null),
+    [original, setOriginal] = useState<Result | null>(null);
+  const [dirty, setDirty] = useState(false),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const [creating, setCreating] = useState(true);
+  async function refresh() {
+    const data = await api.list();
+    setItems(data.items);
+  }
+  function show(value: Meeting) {
+    setMeeting(value);
+    setReview(value.result ? reviewOf(value.result) : null);
+    setOriginal(null);
+    setDirty(false);
+    setCreating(false);
+  }
+  async function act(action: () => Promise<void>) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка приложения.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    void refresh().catch(() =>
+      setError("Не удалось загрузить совещания. Проверьте запуск сервера."),
+    );
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setInterval(() => {
+      void refresh().catch(() => {});
+      if (meeting && ["queued", "processing"].includes(meeting.status))
+        void api
+          .get(meeting.id)
+          .then((value) => {
+            if (!cancelled) show(value);
+          })
+          .catch(() => setError("Не удалось обновить статус."));
+    }, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [meeting?.id, meeting?.status]);
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+  function canLeave() {
+    return !dirty || window.confirm("Есть несохранённые правки. Отбросить их?");
+  }
+  function change(next: Review) {
+    setReview(next);
+    setDirty(true);
+    setNotice("");
+  }
+  function taskChange(id: string, patch: Partial<Task>) {
+    if (!review) return;
+    change({
+      ...review,
+      tasks: review.tasks.map((t) => {
+        if (t.id !== id) return t;
+        const next = { ...t, ...patch };
+        if (!next.assignee_id || !next.due_date) next.needs_review = true;
+        return next;
+      }),
+    });
+  }
+  const invalid =
+    review && meeting?.result ? validateReview(review, meeting.result) : null;
+  async function create(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const names = String(data.get("names"))
+      .split("\n")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    const body = new FormData();
+    body.set("audio", data.get("audio")!);
+    body.set(
+      "metadata",
+      JSON.stringify({
+        title: data.get("title"),
+        meeting_datetime: data.get("datetime"),
+        timezone: data.get("timezone"),
+        participants: names.map((name, i) => ({
+          id: "p" + (i + 1),
+          name,
+          speaker_ids: [],
+        })),
+      }),
+    );
+    await act(async () => {
+      show(await api.create(body));
+      await refresh();
+    });
+  }
+  return (
+    <div className="shell">
+      <aside>
+        <div className="brand">◉ Хаттама</div>
+        <p>Совещания и поручения</p>
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => {
+            if (canLeave()) {
+              setCreating(true);
+              setDirty(false);
+              setMeeting(null);
+              setError("");
+            }
+          }}
+        >
+          ＋ Новое совещание
+        </button>
+        <nav aria-label="Совещания">
+          {items.map((item) => (
+            <button
+              key={item.id}
+              className={meeting?.id === item.id ? "selected" : ""}
+              disabled={busy}
+              onClick={() => {
+                if (canLeave())
+                  void act(async () => show(await api.get(item.id)));
+              }}
+            >
+              <strong>{item.title}</strong>
+              <small>
+                {statuses[item.status]}
+                {item.mode === "fixture" ? " · ТЕСТ" : ""}
+              </small>
+            </button>
+          ))}
+        </nav>
+        {!items.length && (
+          <p className="muted">Загрузите первую запись — она появится здесь.</p>
+        )}
+        <footer>
+          Локальная обработка.
+          <br />
+          Результаты проверяет человек.
+        </footer>
+      </aside>
+      <main>
+        {error && (
+          <div role="alert" className="alert">
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div role="status" className="success">
+            {notice}
+          </div>
+        )}
+        {creating ? (
+          <section>
+            <div className="eyebrow">НОВАЯ ЗАПИСЬ</div>
+            <h1>От совещания к действиям</h1>
+            <p className="lead">
+              Загрузите запись. Проверьте расшифровку, уточните поручения и
+              сохраните протокол.
+            </p>
+            <form onSubmit={create}>
+              <label>
+                Название
+                <input
+                  name="title"
+                  required
+                  maxLength={200}
+                  placeholder="Рабочее совещание"
+                />
+              </label>
+              <div className="columns">
+                <label>
+                  Дата и время с UTC-смещением
+                  <input
+                    name="datetime"
+                    required
+                    placeholder="2026-09-23T10:00:00+05:00"
+                    aria-describedby="date-help"
+                  />
+                </label>
+                <label>
+                  Часовой пояс
+                  <input
+                    name="timezone"
+                    required
+                    defaultValue={
+                      Intl.DateTimeFormat().resolvedOptions().timeZone
+                    }
+                  />
+                </label>
+              </div>
+              <small id="date-help">
+                Укажите фактическую дату записи. От неё рассчитываются
+                относительные сроки.
+              </small>
+              <label>
+                Известные участники, по одному на строку
+                <textarea
+                  name="names"
+                  rows={4}
+                  placeholder={"Марсель\nАйжан"}
+                />
+              </label>
+              <label className="upload">
+                Аудиозапись
+                <input
+                  type="file"
+                  name="audio"
+                  required
+                  accept=".wav,.mp3,.m4a,.flac"
+                />
+                <small>WAV, MP3, M4A, FLAC · до 100 МиБ по умолчанию</small>
+              </label>
+              <button className="primary" disabled={busy}>
+                {busy ? "Сохраняем…" : "Загрузить и обработать"}
+              </button>
+            </form>
+          </section>
+        ) : (
+          meeting && (
+            <>
+              <header>
+                <div>
+                  <div className="eyebrow">{statuses[meeting.status]}</div>
+                  <h1>{meeting.title}</h1>
+                  <p>
+                    {meeting.meeting_datetime} · {meeting.timezone}
+                  </p>
+                </div>
+                <button
+                  disabled={busy || meeting.status === "processing"}
+                  onClick={() => {
+                    if (
+                      canLeave() &&
+                      window.confirm("Удалить запись и все её результаты?")
+                    )
+                      void act(async () => {
+                        await api.remove(meeting.id);
+                        setMeeting(null);
+                        setReview(null);
+                        setCreating(true);
+                        setDirty(false);
+                        await refresh();
+                      });
+                  }}
+                >
+                  Удалить
+                </button>
+              </header>
+              {meeting.mode === "fixture" && (
+                <div className="alert">
+                  ТЕСТОВЫЙ РЕЗУЛЬТАТ. Это синтетический пример для проверки
+                  приложения; аудио и модели не анализировались.
+                </div>
+              )}
+              {["queued", "processing"].includes(meeting.status) && (
+                <section aria-live="polite">
+                  <h2>
+                    {meeting.stage
+                      ? stages[meeting.stage] || meeting.stage
+                      : "Запись ожидает обработки"}
+                  </h2>
+                  <p>
+                    Статус обновляется автоматически. Сохранённую запись можно
+                    открыть позже.
+                  </p>
+                </section>
+              )}
+              {meeting.status === "failed" && (
+                <section>
+                  <h2>Обработка не завершена</h2>
+                  <p>{meeting.error?.message}</p>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void act(async () => show(await api.retry(meeting.id)))
+                    }
+                  >
+                    Повторить обработку
+                  </button>
+                </section>
+              )}
+              {review && meeting.result && (
+                <fieldset disabled={busy}>
+                  {meeting.result.warnings.map((w, i) => (
+                    <p key={i} className="warning">
+                      {w}
+                    </p>
+                  ))}
+                  <section>
+                    <h2>Участники</h2>
+                    <p className="muted">
+                      Сопоставьте метки голосов с именами после проверки реплик.
+                    </p>
+                    {review.participants.map((p, index) => (
+                      <div className="participant" key={p.id}>
+                        <input
+                          aria-label={"Имя участника " + (index + 1)}
+                          value={p.name || ""}
+                          onChange={(e) =>
+                            change({
+                              ...review,
+                              participants: review.participants.map((x) =>
+                                x.id === p.id
+                                  ? {
+                                      ...x,
+                                      name: e.target.value.trim()
+                                        ? e.target.value
+                                        : null,
+                                    }
+                                  : x,
+                              ),
+                            })
+                          }
+                        />
+                        {[
+                          ...new Set(
+                            meeting.result!.segments.map((s) => s.speaker_id),
+                          ),
+                        ].map((s) => (
+                          <label className="check" key={s}>
+                            <input
+                              type="checkbox"
+                              checked={p.speaker_ids.includes(s)}
+                              onChange={(e) =>
+                                change({
+                                  ...review,
+                                  participants: review.participants.map((x) =>
+                                    x.id === p.id
+                                      ? {
+                                          ...x,
+                                          speaker_ids: e.target.checked
+                                            ? [...x.speaker_ids, s]
+                                            : x.speaker_ids.filter(
+                                                (y) => y !== s,
+                                              ),
+                                        }
+                                      : x,
+                                  ),
+                                })
+                              }
+                            />
+                            {s}
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() =>
+                        change({
+                          ...review,
+                          participants: [
+                            ...review.participants,
+                            {
+                              id: crypto.randomUUID(),
+                              name: null,
+                              speaker_ids: [],
+                            },
+                          ],
+                        })
+                      }
+                    >
+                      ＋ Участник
+                    </button>
+                  </section>
+                  <section>
+                    <h2>Краткое содержание</h2>
+                    <textarea
+                      aria-label="Краткое содержание"
+                      rows={5}
+                      value={review.summary}
+                      onChange={(e) =>
+                        change({ ...review, summary: e.target.value })
+                      }
+                    />
+                  </section>
+                  <section>
+                    <div className="section-title">
+                      <h2>
+                        Поручения <span>{review.tasks.length}</span>
+                      </h2>
+                      <button
+                        onClick={() =>
+                          change({
+                            ...review,
+                            tasks: [
+                              ...review.tasks,
+                              {
+                                id: crypto.randomUUID(),
+                                text: "",
+                                assignee_id: null,
+                                due_date: null,
+                                source_segment_ids: [],
+                                needs_review: true,
+                              },
+                            ],
+                          })
+                        }
+                      >
+                        ＋ Поручение
+                      </button>
+                    </div>
+                    {!review.tasks.length && (
+                      <p>
+                        Поручений пока нет. Можно добавить вручную с указанием
+                        источника.
+                      </p>
+                    )}
+                    {review.tasks.map((task, i) => (
+                      <article className="task" key={task.id}>
+                        <label>
+                          Поручение {i + 1}
+                          <textarea
+                            rows={2}
+                            value={task.text}
+                            onChange={(e) =>
+                              taskChange(task.id, { text: e.target.value })
+                            }
+                          />
+                        </label>
+                        <div className="columns">
+                          <label>
+                            Ответственный
+                            <select
+                              value={task.assignee_id || ""}
+                              onChange={(e) =>
+                                taskChange(task.id, {
+                                  assignee_id: e.target.value || null,
+                                })
+                              }
+                            >
+                              <option value="">Требует уточнения</option>
+                              {review.participants.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name || "Участник без имени"}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Срок
+                            <input
+                              type="date"
+                              value={task.due_date || ""}
+                              onChange={(e) =>
+                                taskChange(task.id, {
+                                  due_date: e.target.value || null,
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={task.needs_review}
+                            disabled={!task.assignee_id || !task.due_date}
+                            onChange={(e) =>
+                              taskChange(task.id, {
+                                needs_review: e.target.checked,
+                              })
+                            }
+                          />
+                          Требует проверки
+                        </label>
+                        <details>
+                          <summary>
+                            Источники: {task.source_segment_ids.length} —
+                            выбрать реплики
+                          </summary>
+                          {meeting.result!.segments.map((s) => (
+                            <label className="source" key={s.id}>
+                              <input
+                                type="checkbox"
+                                checked={task.source_segment_ids.includes(s.id)}
+                                onChange={(e) =>
+                                  taskChange(task.id, {
+                                    source_segment_ids: e.target.checked
+                                      ? [...task.source_segment_ids, s.id]
+                                      : task.source_segment_ids.filter(
+                                          (id) => id !== s.id,
+                                        ),
+                                  })
+                                }
+                              />
+                              <span>
+                                {s.start.toFixed(1)} с · {s.speaker_id}
+                                <br />
+                                {s.text}
+                              </span>
+                            </label>
+                          ))}
+                        </details>
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            change({
+                              ...review,
+                              tasks: review.tasks.filter(
+                                (t) => t.id !== task.id,
+                              ),
+                            })
+                          }
+                        >
+                          Удалить поручение
+                        </button>
+                      </article>
+                    ))}
+                  </section>
+                  <section>
+                    <h2>Расшифровка</h2>
+                    {meeting.result.segments.map((s) => (
+                      <div className="segment" key={s.id}>
+                        <small>
+                          {s.start.toFixed(1)}–{s.end.toFixed(1)} с ·{" "}
+                          {review.participants.find((p) =>
+                            p.speaker_ids.includes(s.speaker_id),
+                          )?.name || s.speaker_id}
+                        </small>
+                        <p>{s.text}</p>
+                      </div>
+                    ))}
+                  </section>
+                  <section>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void act(async () =>
+                          setOriginal(
+                            original ? null : await api.original(meeting.id),
+                          ),
+                        )
+                      }
+                    >
+                      {original ? "Скрыть" : "Показать"} исходный результат ИИ
+                    </button>
+                    {original && <pre>{JSON.stringify(original, null, 2)}</pre>}
+                  </section>
+                  <div className="savebar">
+                    {invalid ? (
+                      <p role="alert">{invalid}</p>
+                    ) : (
+                      <p>
+                        {dirty
+                          ? "Есть несохранённые правки"
+                          : "Все правки сохранены"}{" "}
+                        · версия {meeting.revision}
+                      </p>
+                    )}
+                    <div className="actions">
+                      <button
+                        className="primary"
+                        disabled={busy || !dirty || !!invalid}
+                        onClick={() =>
+                          void act(async () => {
+                            show(
+                              await api.review(
+                                meeting.id,
+                                meeting.revision,
+                                review,
+                              ),
+                            );
+                            setNotice(
+                              "Правки сохранены. DOCX содержит эту версию.",
+                            );
+                            await refresh();
+                          })
+                        }
+                      >
+                        Сохранить правки
+                      </button>
+                      {!dirty && !invalid ? (
+                        <a className="button" href={api.exportURL(meeting.id)}>
+                          Скачать DOCX
+                        </a>
+                      ) : (
+                        <button disabled>Сначала сохраните правки</button>
+                      )}
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          if (canLeave())
+                            void act(async () =>
+                              show(await api.get(meeting.id)),
+                            );
+                        }}
+                      >
+                        Открыть сохранённую версию
+                      </button>
+                    </div>
+                  </div>
+                </fieldset>
+              )}
+            </>
+          )
+        )}
+      </main>
+    </div>
+  );
+}
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

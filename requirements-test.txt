@@ -1,0 +1,4 @@
+-r backend/requirements-dev.txt
+# Headless regression checks for the legacy Streamlit UI; no model inference.
+streamlit==1.64.0
+pandas==3.0.6

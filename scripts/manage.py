@@ -142,6 +142,14 @@ def environment(args):
     return env
 
 
+def prepare_bundled_models(args, env):
+    if (
+        args.profile in ("mac", "windows")
+        and Path(env["AI_ASR_PATH"]).parent == ROOT / "models"
+    ):
+        call([sys.executable, ROOT / "scripts/prepare_repo_models.py"])
+
+
 def check_windows(args, env, verify_hashes=False):
     command = [
         args.worker_python or args.python,
@@ -163,11 +171,7 @@ def run(args):
         raise SystemExit(
             "Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend."
         )
-    if (
-        args.profile in ("mac", "windows")
-        and Path(env["AI_ASR_PATH"]).parent == ROOT / "models"
-    ):
-        call([sys.executable, ROOT / "scripts/prepare_repo_models.py"])
+    prepare_bundled_models(args, env)
     if args.profile != "fixture":
         if args.profile == "windows":
             check_windows(args, env)
@@ -297,7 +301,9 @@ def main():
             parser.error(
                 "doctor currently checks the Windows model profile; use --profile windows"
             )
-        check_windows(args, environment(args), verify_hashes=True)
+        env = environment(args)
+        prepare_bundled_models(args, env)
+        check_windows(args, env, verify_hashes=True)
     else:
         run(args)
 

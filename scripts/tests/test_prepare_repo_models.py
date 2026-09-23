@@ -129,3 +129,29 @@ def test_launcher_defaults_to_bundled_models_and_preserves_overrides(
     assert manage.environment(args)["AI_ASR_PATH"] == str(tmp_path / "env-models/asr")
     args.models = str(tmp_path / "explicit")
     assert manage.environment(args)["AI_ASR_PATH"] == str(tmp_path / "explicit/asr")
+
+
+def test_windows_defaults_to_same_bundled_weights(monkeypatch):
+    monkeypatch.delenv("MEETING_MODEL_DIR", raising=False)
+    args = SimpleNamespace(profile="windows", models=None, device="cpu")
+    env = manage.environment(args)
+    assert env["MEETING_MODEL_DIR"] == str(manage.ROOT / "models")
+    assert env["AI_LLM"] == "mlx_torch"
+    assert env["AI_LLM_PATH"] == str(manage.ROOT / "models/llm")
+
+
+@pytest.mark.parametrize("profile", ["mac", "windows"])
+def test_only_bundled_paths_are_assembled_before_launch(profile, monkeypatch, tmp_path):
+    calls = []
+    monkeypatch.setattr(manage, "call", lambda command: calls.append(command))
+    args = SimpleNamespace(profile=profile)
+    manage.prepare_bundled_models(
+        args, {"AI_ASR_PATH": str(manage.ROOT / "models/asr")}
+    )
+    assert calls == [
+        [manage.sys.executable, manage.ROOT / "scripts/prepare_repo_models.py"]
+    ]
+    calls.clear()
+    manage.prepare_bundled_models(args, {"AI_ASR_PATH": str(tmp_path / "asr")})
+    manage.prepare_bundled_models(SimpleNamespace(profile="fixture"), {})
+    assert calls == []

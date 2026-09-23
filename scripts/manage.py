@@ -102,7 +102,7 @@ def environment(args):
                    AI_DIARIZER='sherpa', AI_DIARIZATION_PATH=str(folder / 'diarization'),
                    AI_LLM='mlx', AI_LLM_PATH=str(folder / 'llm'), AI_DEVICE='cpu')
     elif args.profile == 'windows':
-        folder = Path(args.models or env.get('MEETING_MODEL_DIR') or ROOT / '.local/models').expanduser().resolve()
+        folder = Path(args.models or env.get('MEETING_MODEL_DIR') or ROOT / 'models').expanduser().resolve()
         env.update(MEETING_MODEL_DIR=str(folder), AI_ASR='mixed_ctc',
                    AI_ASR_PATH=str(folder / 'asr'), AI_DIARIZER='sherpa',
                    AI_DIARIZATION_PATH=str(folder / 'diarization'),
@@ -111,6 +111,11 @@ def environment(args):
         env.setdefault('AI_CONTEXT_TOKENS', '2048')
         env.setdefault('AI_MAX_NEW_TOKENS', '512')
     return env
+
+
+def prepare_bundled_models(args, env):
+    if args.profile in ('mac', 'windows') and Path(env['AI_ASR_PATH']).parent == ROOT / 'models':
+        call([sys.executable, ROOT / 'scripts/prepare_repo_models.py'])
 
 
 def check_windows(args, env, verify_hashes=False):
@@ -125,8 +130,7 @@ def run(args):
     env = environment(args)
     if not (ROOT / 'frontend/dist/index.html').exists():
         raise SystemExit('Интерфейс не собран. Выполните make setup или npm ci --prefix frontend && npm run build --prefix frontend.')
-    if args.profile == 'mac' and Path(env['AI_ASR_PATH']).parent == ROOT / 'models':
-        call([sys.executable, ROOT / 'scripts/prepare_repo_models.py'])
+    prepare_bundled_models(args, env)
     if args.profile != 'fixture':
         if args.profile == 'windows':
             check_windows(args, env)
@@ -188,7 +192,9 @@ def main():
     elif args.action == 'doctor':
         if args.profile != 'windows':
             parser.error('doctor currently checks the Windows model profile; use --profile windows')
-        check_windows(args, environment(args), verify_hashes=True)
+        env = environment(args)
+        prepare_bundled_models(args, env)
+        check_windows(args, env, verify_hashes=True)
     else:
         run(args)
 

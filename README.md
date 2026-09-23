@@ -62,8 +62,8 @@ Windows-профиль использует те же mixed-STT, Sherpa ONNX и 
 
 ```powershell
 python scripts/manage.py setup --profile windows
-# Один раз подготовьте оригинальный комплект (GitHub CLI с доступом к репозиторию):
-python scripts/download_models.py --directory .local/models
+# Собрать оригинальные веса, уже скачанные вместе с репозиторием:
+python scripts/prepare_repo_models.py
 # Для NVIDIA: устанавливается в то же окружение, где работает worker.
 .\prototypes\meeting-mvp\.venv\Scripts\python.exe -m pip install torch==2.14.0+cu130 --index-url https://download.pytorch.org/whl/cu130
 .\prototypes\meeting-mvp\.venv\Scripts\python.exe scripts/manage.py doctor --profile windows --device cuda
@@ -72,7 +72,7 @@ python scripts/download_models.py --directory .local/models
 
 Если установка создала корневое `.venv`, используйте `.venv\Scripts\python.exe` вместо пути прототипа. CUDA-команда рассчитана на совместимый NVIDIA-драйвер; CPU-профиль доступен через `start-windows.cmd -Device cpu`. Ярлык выбирает доступный PyTorch CUDA при запуске, иначе CPU, и печатает выбранное устройство. Сбой обработки не переключает модель, устройство или режим на фикстуру.
 
-По умолчанию нужен каталог `.local/models`; другой путь задаётся `-Models "C:\path\to\models"`. Перед запуском проверяются комплект файлов, зависимости и поддержка выбранного устройства. `doctor` дополнительно пересчитывает SHA-256. Предыдущий тестовый сервер на порту 8000 сначала остановите через Ctrl+C.
+По умолчанию используется каталог `models` репозитория; части весов собираются автоматически. Другой путь задаётся `-Models "C:\path\to\models"`. Перед запуском проверяются комплект файлов, зависимости и поддержка выбранного устройства. `doctor` дополнительно пересчитывает SHA-256. Предыдущий тестовый сервер на порту 8000 сначала остановите через Ctrl+C.
 
 ### Linux с NVIDIA GPU
 

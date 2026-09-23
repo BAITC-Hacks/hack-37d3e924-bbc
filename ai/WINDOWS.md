@@ -7,7 +7,7 @@
 Состав не меняется: `ai/mac-models.lock.json` фиксирует исходный mixed-STT, две ONNX-модели и MLX Qwen3-4B-Instruct-2507-4bit. Доставка: [models/README.md](../models/README.md). Для проверки исходных байтов:
 
 ```powershell
-python scripts/manage.py doctor --profile windows --device cuda --models .local/models
+python scripts/manage.py doctor --profile windows --device cuda --models models
 ```
 
 `ai/mlx_torch.py` — собственный адаптер формата, а не официальный Windows-порт MLX. Он сохраняет упакованные 4-битные веса, масштабы и смещения. Для вычисления распаковывается не более 1024 строк матрицы; таблица токенов и выходной слой используют одни буферы. Никакая новая модель или копия полных BF16-весов на диск не создаётся.
@@ -30,7 +30,7 @@ python scripts/manage.py setup --profile windows
 Явный запуск:
 
 ```powershell
-.\prototypes\meeting-mvp\.venv\Scripts\python.exe scripts/manage.py run --profile windows --device cuda --models .local/models
+.\prototypes\meeting-mvp\.venv\Scripts\python.exe scripts/manage.py run --profile windows --device cuda --models models
 # Без совместимой NVIDIA GPU:
 .\start-windows.cmd -Device cpu
 ```
@@ -38,7 +38,7 @@ python scripts/manage.py setup --profile windows
 Порт — 8000, только loopback. Ctrl+C останавливает API и worker. Старый Streamlit использует тот же адаптер через `MEETING_LLM_RUNTIME=mlx_torch`; `MEETING_DEVICE` выбирает CPU/CUDA, `MEETING_MODEL_DIR` — подготовленный комплект. Для прототипа нужна отдельная квитанция проверки, которую создаёт явная команда:
 
 ```powershell
-$env:MEETING_MODEL_DIR = (Resolve-Path .local/models).Path
+$env:MEETING_MODEL_DIR = (Resolve-Path models).Path
 .\prototypes\meeting-mvp\.venv\Scripts\python.exe prototypes/meeting-mvp/download_models.py --verify-only
 $env:MEETING_DEVICE = 'cuda'
 .\prototypes\meeting-mvp\start.cmd

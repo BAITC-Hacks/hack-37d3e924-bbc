@@ -1,0 +1,286 @@
+{
+  "schema_version": 1,
+  "repository": "BAITC-Hacks/hack-37d3e924-bbc",
+  "tag": "models-mac-v1",
+  "files": [
+    {
+      "path": "asr/model.pt",
+      "url": "https://huggingface.co/alibiserikbay/kazakh-russian-mixed-stt/resolve/26298d2a61dc1573bfc11b7055c7d09a1e64b8a4/asr/rukk/model.pt",
+      "sha256": "92fe1791d7c93f385fc10a959dd216caa98c6a571df72f11d1605c6327393b88",
+      "bytes": 756007202,
+      "assets": [
+        {
+          "name": "asr--model.pt",
+          "bytes": 756007202,
+          "sha256": "92fe1791d7c93f385fc10a959dd216caa98c6a571df72f11d1605c6327393b88"
+        }
+      ]
+    },
+    {
+      "path": "asr/tokens.lst",
+      "url": "https://huggingface.co/alibiserikbay/kazakh-russian-mixed-stt/resolve/26298d2a61dc1573bfc11b7055c7d09a1e64b8a4/asr/rukk/tokens.lst",
+      "sha256": "d6e8335d2268efc64e3e5e4dfaeadc749998248f126aa6a9f2a3190c317db4d1",
+      "bytes": 266,
+      "assets": [
+        {
+          "name": "asr--tokens.lst",
+          "bytes": 266,
+          "sha256": "d6e8335d2268efc64e3e5e4dfaeadc749998248f126aa6a9f2a3190c317db4d1"
+        }
+      ]
+    },
+    {
+      "path": "llm/README.md",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/README.md",
+      "sha256": "7b17ce562d7ea121c86d2ffdf660eed3726ac5b52cacfa9f1de11a65969f5657",
+      "bytes": 969,
+      "assets": [
+        {
+          "name": "llm--README.md",
+          "bytes": 969,
+          "sha256": "7b17ce562d7ea121c86d2ffdf660eed3726ac5b52cacfa9f1de11a65969f5657"
+        }
+      ]
+    },
+    {
+      "path": "llm/added_tokens.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/added_tokens.json",
+      "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680",
+      "bytes": 707,
+      "assets": [
+        {
+          "name": "llm--added_tokens.json",
+          "bytes": 707,
+          "sha256": "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680"
+        }
+      ]
+    },
+    {
+      "path": "llm/chat_template.jinja",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/chat_template.jinja",
+      "sha256": "40c21f34cf67d8c760ef72f8ad3ae5afad514299d4b06e91dd9a8d705af7b541",
+      "bytes": 4040,
+      "assets": [
+        {
+          "name": "llm--chat_template.jinja",
+          "bytes": 4040,
+          "sha256": "40c21f34cf67d8c760ef72f8ad3ae5afad514299d4b06e91dd9a8d705af7b541"
+        }
+      ]
+    },
+    {
+      "path": "llm/config.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/config.json",
+      "sha256": "574349e5a343236546fda55e4744a76e181f534182d7dc60ff1bad7e7a502849",
+      "bytes": 938,
+      "assets": [
+        {
+          "name": "llm--config.json",
+          "bytes": 938,
+          "sha256": "574349e5a343236546fda55e4744a76e181f534182d7dc60ff1bad7e7a502849"
+        }
+      ]
+    },
+    {
+      "path": "llm/generation_config.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/generation_config.json",
+      "sha256": "835fffe355c9438e7a25be099b3fccaa98350b83451f9fd2d99512e74f1ade48",
+      "bytes": 238,
+      "assets": [
+        {
+          "name": "llm--generation_config.json",
+          "bytes": 238,
+          "sha256": "835fffe355c9438e7a25be099b3fccaa98350b83451f9fd2d99512e74f1ade48"
+        }
+      ]
+    },
+    {
+      "path": "llm/merges.txt",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/merges.txt",
+      "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+      "bytes": 1671853,
+      "assets": [
+        {
+          "name": "llm--merges.txt",
+          "bytes": 1671853,
+          "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+        }
+      ]
+    },
+    {
+      "path": "llm/model.safetensors",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/model.safetensors",
+      "sha256": "2a73c6c248601ab904e035548abd8e6abb65ea27dcb5f342fb0a8910eb44173f",
+      "bytes": 2263022417,
+      "assets": [
+        {
+          "name": "llm--model.safetensors.part-001",
+          "bytes": 1073741824,
+          "sha256": "c840c696aafde64422b6c4c0ba6ad56cdc4cf0b6cd93a8d2d45095fbb365cdf1"
+        },
+        {
+          "name": "llm--model.safetensors.part-002",
+          "bytes": 1073741824,
+          "sha256": "b8997a2399906e3db72c1ce0dffe66bb7a0cd5926f31e3f1e6a001994a263e44"
+        },
+        {
+          "name": "llm--model.safetensors.part-003",
+          "bytes": 115538769,
+          "sha256": "2b5185820a308a669fefe90f013af02c74c354e5eefccbaf5c2e6dc536170513"
+        }
+      ]
+    },
+    {
+      "path": "llm/model.safetensors.index.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/model.safetensors.index.json",
+      "sha256": "388d811b8b7c2608dd04cce1bcb04a8bf715d19b42790894e6d3427ff429a777",
+      "bytes": 63964,
+      "assets": [
+        {
+          "name": "llm--model.safetensors.index.json",
+          "bytes": 63964,
+          "sha256": "388d811b8b7c2608dd04cce1bcb04a8bf715d19b42790894e6d3427ff429a777"
+        }
+      ]
+    },
+    {
+      "path": "llm/special_tokens_map.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/special_tokens_map.json",
+      "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd",
+      "bytes": 613,
+      "assets": [
+        {
+          "name": "llm--special_tokens_map.json",
+          "bytes": 613,
+          "sha256": "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"
+        }
+      ]
+    },
+    {
+      "path": "llm/tokenizer.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/tokenizer.json",
+      "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+      "bytes": 11422654,
+      "assets": [
+        {
+          "name": "llm--tokenizer.json",
+          "bytes": 11422654,
+          "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+        }
+      ]
+    },
+    {
+      "path": "llm/tokenizer_config.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/tokenizer_config.json",
+      "sha256": "4397cc477eb6d79715ccd2000accd6b3531928f30029665832fa1b255f24d2b9",
+      "bytes": 5440,
+      "assets": [
+        {
+          "name": "llm--tokenizer_config.json",
+          "bytes": 5440,
+          "sha256": "4397cc477eb6d79715ccd2000accd6b3531928f30029665832fa1b255f24d2b9"
+        }
+      ]
+    },
+    {
+      "path": "llm/vocab.json",
+      "url": "https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit/resolve/50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b/vocab.json",
+      "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+      "bytes": 2776833,
+      "assets": [
+        {
+          "name": "llm--vocab.json",
+          "bytes": 2776833,
+          "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+        }
+      ]
+    },
+    {
+      "path": "diarization/segmentation.onnx",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2",
+      "archive_member": "sherpa-onnx-pyannote-segmentation-3-0/model.onnx",
+      "sha256": "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
+      "bytes": 5992913,
+      "assets": [
+        {
+          "name": "diarization--segmentation.onnx",
+          "bytes": 5992913,
+          "sha256": "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079"
+        }
+      ]
+    },
+    {
+      "path": "diarization/embedding.onnx",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx",
+      "sha256": "1a331345f04805badbb495c775a6ddffcdd1a732567d5ec8b3d5749e3c7a5e4b",
+      "bytes": 39593761,
+      "assets": [
+        {
+          "name": "diarization--embedding.onnx",
+          "bytes": 39593761,
+          "sha256": "1a331345f04805badbb495c775a6ddffcdd1a732567d5ec8b3d5749e3c7a5e4b"
+        }
+      ]
+    },
+    {
+      "path": "licenses/3D-Speaker-LICENSE.txt",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "assets": [
+        {
+          "name": "licenses--3D-Speaker-LICENSE.txt",
+          "bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    {
+      "path": "licenses/Apache-2.0.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "assets": [
+        {
+          "name": "licenses--Apache-2.0.txt",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "path": "licenses/Qwen-LICENSE.txt",
+      "bytes": 11343,
+      "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "assets": [
+        {
+          "name": "licenses--Qwen-LICENSE.txt",
+          "bytes": 11343,
+          "sha256": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e"
+        }
+      ]
+    },
+    {
+      "path": "licenses/pyannote-MIT.txt",
+      "bytes": 1061,
+      "sha256": "14d7016ad68e7394d6e6b78d96cc2ae431c905287b89674cfdf021e79e62b8ba",
+      "assets": [
+        {
+          "name": "licenses--pyannote-MIT.txt",
+          "bytes": 1061,
+          "sha256": "14d7016ad68e7394d6e6b78d96cc2ae431c905287b89674cfdf021e79e62b8ba"
+        }
+      ]
+    },
+    {
+      "path": "licenses/NOTICE.md",
+      "bytes": 2618,
+      "sha256": "7f6da9f29bdebd721c01d74cec2e4b6bed6731272194185a635b2906a29efcd0",
+      "assets": [
+        {
+          "name": "licenses--NOTICE.md",
+          "bytes": 2618,
+          "sha256": "7f6da9f29bdebd721c01d74cec2e4b6bed6731272194185a635b2906a29efcd0"
+        }
+      ]
+    }
+  ]
+}

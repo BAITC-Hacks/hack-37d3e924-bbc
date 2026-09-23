@@ -116,7 +116,7 @@ def main():
         call(['npm', 'ci', '--prefix', 'frontend'])
         call(['npm', 'run', 'build', '--prefix', 'frontend'])
     elif args.action == 'verify':
-        for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests'):
+        for tests in ('backend/tests', 'ai/tests', 'prototypes/meeting-mvp/tests', 'scripts/tests'):
             call([args.python, '-m', 'pytest', tests, '-q'])
         call(['npm', 'test', '--prefix', 'frontend'])
         call(['npm', 'run', 'build', '--prefix', 'frontend'])
